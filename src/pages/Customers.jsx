@@ -28,6 +28,7 @@ const Customers = () => {
     city: '',
     customerType: '',
     creditLimit: '',
+    discount: '',
     email: '',
     notes: ''
   });
@@ -95,6 +96,7 @@ const Customers = () => {
       city: customer.city,
       customerType: customer.customerType,
       creditLimit: customer.creditLimit,
+      discount: customer.discount || '',
       email: customer.email,
       notes: customer.notes || ''
     });
@@ -116,6 +118,7 @@ const Customers = () => {
       city: '',
       customerType: '',
       creditLimit: '',
+      discount: '',
       email: '',
       notes: ''
     });
@@ -203,6 +206,7 @@ const Customers = () => {
               <th className="table-header">المدينة</th>
               <th className="table-header">النوع</th>
               <th className="table-header">حد الائتمان</th>
+              <th className="table-header">نسبة الخصم</th>
               <th className="table-header">الرصيد الحالي</th>
               <th className="table-header">تم الإنشاء بواسطة</th>
               <th className="table-header">آخر تعديل</th>
@@ -225,8 +229,13 @@ const Customers = () => {
                     {customer.customerType}
                   </span>
                 </td>
-                <td className="table-cell">{customer.creditLimit?.toLocaleString()} ر.س</td>
-                <td className="table-cell">{customer.currentBalance?.toLocaleString()} ر.س</td>
+                <td className="table-cell">{customer.creditLimit?.toLocaleString()} ج.م</td>
+                <td className="table-cell">
+                  <span className="text-primary-600 font-medium">
+                    {customer.discount || 0}%
+                  </span>
+                </td>
+                <td className="table-cell">{customer.currentBalance?.toLocaleString()} ج.م</td>
                 <td className="table-cell text-xs">{customer.createdBy}</td>
                 <td className="table-cell text-xs">
                   {customer.updatedBy ? `${customer.updatedBy}` : '-'}
@@ -336,7 +345,7 @@ const Customers = () => {
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                حد الائتمان (ر.س)
+                حد الائتمان (ج.م)
               </label>
               <input
                 type="number"
@@ -345,6 +354,22 @@ const Customers = () => {
                 className="input-field"
                 value={formData.creditLimit}
                 onChange={(e) => setFormData({...formData, creditLimit: parseFloat(e.target.value) || 0})}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                نسبة الخصم (%)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                className="input-field"
+                value={formData.discount}
+                onChange={(e) => setFormData({...formData, discount: parseFloat(e.target.value) || 0})}
+                placeholder="0.0"
               />
             </div>
           </div>

@@ -101,7 +101,7 @@ const Dashboard = () => {
     },
   };
 
-  const StatCard = ({ title, value, icon: Icon, growth, color = 'blue' }) => {
+  const StatCard = ({ title, value, icon: Icon, growth, color = 'blue', currency = false }) => {
     const isPositive = growth > 0;
     const colorClasses = {
       blue: 'bg-primary-500',
@@ -115,7 +115,9 @@ const Dashboard = () => {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-secondary-600">{title}</p>
-            <p className="text-2xl font-bold text-secondary-900">{value.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-secondary-900">
+              {value.toLocaleString()}{currency ? ' ج.م' : ''}
+            </p>
             <div className="flex items-center mt-2">
               {isPositive ? (
                 <ArrowTrendingUpIcon className="w-4 h-4 text-green-500 ml-1" />
@@ -154,6 +156,7 @@ const Dashboard = () => {
           icon={CurrencyDollarIcon}
           growth={stats.salesGrowth}
           color="blue"
+          currency={true}
         />
         <StatCard
           title="إجمالي الطلبات"

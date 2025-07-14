@@ -13,6 +13,10 @@ import Inventory from './pages/Inventory';
 import Accounting from './pages/Accounting';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
+import Settings from './pages/Settings';
+import OrderTracking from './pages/OrderTracking';
+import SalesReturns from './pages/SalesReturns';
+import CustomerAccounts from './pages/CustomerAccounts';
 
 function App() {
   return (
@@ -106,6 +110,46 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Reports />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute requiredRole="Supervisor">
+                  <Layout>
+                    <Settings />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/order-tracking"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <OrderTracking />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sales-returns"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <SalesReturns />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/customer-accounts"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <CustomerAccounts />
                   </Layout>
                 </ProtectedRoute>
               }

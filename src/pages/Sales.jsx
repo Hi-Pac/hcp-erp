@@ -232,10 +232,13 @@ const Sales = () => {
   // Handle customer selection
   const handleCustomerChange = (customerId) => {
     const selectedCustomer = getCustomerById(customerId);
+    const customerDiscount = selectedCustomer ? (selectedCustomer.discount || 0) : 0;
+
     setFormData({
       ...formData,
       customerId: customerId,
-      customerName: selectedCustomer ? selectedCustomer.name : ''
+      customerName: selectedCustomer ? selectedCustomer.name : '',
+      discount: customerDiscount
     });
   };
 
@@ -356,7 +359,7 @@ const Sales = () => {
                 <td className="table-cell font-medium">{invoice.orderNumber}</td>
                 <td className="table-cell">{invoice.customerName}</td>
                 <td className="table-cell">{new Date(invoice.date).toLocaleDateString('ar-SA')}</td>
-                <td className="table-cell font-medium">{invoice.total.toFixed(2)} ر.س</td>
+                <td className="table-cell font-medium">{invoice.total.toFixed(2)} ج.م</td>
                 <td className="table-cell text-sm">{invoice.paymentMethod}</td>
                 <td className="table-cell">
                   <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(invoice.status)}`}>
@@ -447,7 +450,8 @@ const Sales = () => {
             
             <div className="space-y-3">
               {formData.items.map((item, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-3 p-3 border border-secondary-200 rounded-lg">
+                <div key={index} className="p-3 border border-secondary-200 rounded-lg space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                   <div>
                     <select
                       className="input-field"
@@ -483,21 +487,33 @@ const Sales = () => {
                       title="السعر يتم تحديده تلقائياً عند اختيار المنتج"
                     />
                   </div>
-                  <div className="flex items-center">
-                    <span className="text-sm font-medium">
-                      {(item.quantity * item.unitPrice).toFixed(2)} ر.س
-                    </span>
+                    <div className="flex items-center">
+                      <span className="text-sm font-medium">
+                        {(item.quantity * item.unitPrice).toFixed(2)} ج.م
+                      </span>
+                    </div>
+                    <div>
+                      {formData.items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          حذف
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Item Notes */}
                   <div>
-                    {formData.items.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeItem(index)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        حذف
-                      </button>
-                    )}
+                    <input
+                      type="text"
+                      placeholder="ملاحظات الصنف (اختياري)"
+                      className="input-field"
+                      value={item.notes || ''}
+                      onChange={(e) => updateItem(index, 'notes', e.target.value)}
+                    />
                   </div>
                 </div>
               ))}
@@ -515,7 +531,7 @@ const Sales = () => {
                   type="text"
                   readOnly
                   className="input-field bg-secondary-100"
-                  value={`${formData.subtotal.toFixed(2)} ر.س`}
+                  value={`${formData.subtotal.toFixed(2)} ج.م`}
                 />
               </div>
               <div>
@@ -538,7 +554,7 @@ const Sales = () => {
                   type="text"
                   readOnly
                   className="input-field bg-secondary-100 font-bold"
-                  value={`${formData.total.toFixed(2)} ر.س`}
+                  value={`${formData.total.toFixed(2)} ج.م`}
                 />
               </div>
             </div>

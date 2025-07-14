@@ -9,7 +9,11 @@ import {
   CurrencyDollarIcon,
   UserGroupIcon,
   DocumentTextIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  CogIcon,
+  ClockIcon,
+  ArrowUturnLeftIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -58,6 +62,30 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       href: '/reports',
       icon: DocumentTextIcon,
       permission: 'User'
+    },
+    {
+      name: 'تتبع الطلبات',
+      href: '/order-tracking',
+      icon: ClockIcon,
+      permission: 'User'
+    },
+    {
+      name: 'مرتجع المبيعات',
+      href: '/sales-returns',
+      icon: ArrowUturnLeftIcon,
+      permission: 'Sales'
+    },
+    {
+      name: 'حسابات العملاء',
+      href: '/customer-accounts',
+      icon: BanknotesIcon,
+      permission: 'User'
+    },
+    {
+      name: 'إعدادات النظام',
+      href: '/settings',
+      icon: CogIcon,
+      permission: 'Supervisor'
     }
   ];
 

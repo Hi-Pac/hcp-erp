@@ -25,16 +25,24 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [lastActivity, setLastActivity] = useState(Date.now());
 
-  // Auto logout after 5 minutes of inactivity
+  // Auto logout based on system settings
   useEffect(() => {
     const checkInactivity = () => {
       const now = Date.now();
       const timeDiff = now - lastActivity;
-      const fiveMinutes = 5 * 60 * 1000; // 5 minutes in milliseconds
 
-      if (timeDiff > fiveMinutes && currentUser) {
+      // Get auto logout time from settings (default 30 minutes)
+      const settings = JSON.parse(localStorage.getItem('systemSettings') || '{}');
+      const autoLogoutMinutes = settings.autoLogoutTime || 30;
+
+      // If auto logout is disabled (0), don't check
+      if (autoLogoutMinutes === 0) return;
+
+      const logoutTime = autoLogoutMinutes * 60 * 1000; // Convert to milliseconds
+
+      if (timeDiff > logoutTime && currentUser) {
         logout();
-        toast.error('تم تسجيل الخروج تلقائياً بسبب عدم النشاط');
+        toast.error(`تم تسجيل الخروج تلقائياً بعد ${autoLogoutMinutes} دقيقة من عدم النشاط`);
       }
     };
 

@@ -239,27 +239,116 @@ const CustomerAccounts = () => {
   };
 
   const printStatement = (customer) => {
-    // Print functionality
+    // Create print content
+    const printContent = `
+      <html>
+        <head>
+          <title>كشف حساب - ${customer.name}</title>
+          <style>
+            body { font-family: Arial, sans-serif; direction: rtl; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .customer-info { margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+            th { background-color: #f5f5f5; }
+            .total-row { font-weight: bold; background-color: #f9f9f9; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>شركة دلتا للدهانات الحديثة</h1>
+            <h2>كشف حساب العميل</h2>
+          </div>
+          <div class="customer-info">
+            <p><strong>اسم العميل:</strong> ${customer.name}</p>
+            <p><strong>الهاتف:</strong> ${customer.phone}</p>
+            <p><strong>البريد الإلكتروني:</strong> ${customer.email}</p>
+            <p><strong>تاريخ الطباعة:</strong> ${new Date().toLocaleDateString('ar-EG')}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>النوع</th>
+                <th>المرجع</th>
+                <th>البيان</th>
+                <th>مدين</th>
+                <th>دائن</th>
+                <th>الرصيد</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredTransactions.map(transaction => `
+                <tr>
+                  <td>${transaction.date.toLocaleDateString('ar-EG')}</td>
+                  <td>${transaction.type === 'invoice' ? 'فاتورة' : 'دفعة'}</td>
+                  <td>${transaction.reference}</td>
+                  <td>${transaction.description}</td>
+                  <td>${transaction.debit.toLocaleString()} ج.م</td>
+                  <td>${transaction.credit.toLocaleString()} ج.م</td>
+                  <td>${transaction.balance.toLocaleString()} ج.م</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="4">الإجمالي</td>
+                <td>${totalDebit.toLocaleString()} ج.م</td>
+                <td>${totalCredit.toLocaleString()} ج.م</td>
+                <td>${finalBalance >= 0 ? `عليه ${finalBalance.toLocaleString()} ج.م` : `له ${Math.abs(finalBalance).toLocaleString()} ج.م`}</td>
+              </tr>
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
     toast.success(`تم طباعة كشف حساب ${customer.name}`);
   };
 
   const exportStatement = (customer) => {
-    // Export functionality
+    // Create CSV content
+    const csvContent = [
+      ['التاريخ', 'النوع', 'المرجع', 'البيان', 'مدين', 'دائن', 'الرصيد'],
+      ...filteredTransactions.map(transaction => [
+        transaction.date.toLocaleDateString('ar-EG'),
+        transaction.type === 'invoice' ? 'فاتورة' : 'دفعة',
+        transaction.reference,
+        transaction.description,
+        transaction.debit,
+        transaction.credit,
+        transaction.balance
+      ]),
+      ['', '', '', 'الإجمالي', totalDebit, totalCredit, finalBalance]
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `كشف_حساب_${customer.name}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     toast.success(`تم تصدير كشف حساب ${customer.name}`);
   };
 
-  const filteredTransactions = selectedCustomer 
+  const filteredTransactions = selectedCustomer
     ? (customerTransactions[selectedCustomer.id] || []).filter(transaction => {
         if (!dateFrom && !dateTo) return true;
         const transactionDate = transaction.date.toISOString().split('T')[0];
         if (dateFrom && transactionDate < dateFrom) return false;
         if (dateTo && transactionDate > dateTo) return false;
         return true;
-      })
+      }).sort((a, b) => new Date(a.date) - new Date(b.date)) // ترتيب من الأقدم للأحدث
     : [];
 
   const totalDebit = filteredTransactions.reduce((sum, t) => sum + t.debit, 0);
   const totalCredit = filteredTransactions.reduce((sum, t) => sum + t.credit, 0);
+  const finalBalance = totalDebit - totalCredit; // الرصيد النهائي (موجب = عليه، سالب = له)
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -539,10 +628,10 @@ const CustomerAccounts = () => {
                 <tfoot className="bg-secondary-50">
                   <tr>
                     <td colSpan="4" className="px-4 py-3 text-sm font-medium text-secondary-900">الإجمالي</td>
-                    <td className="px-4 py-3 text-sm font-bold text-red-600">{totalDebit.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm font-bold text-green-600">{totalCredit.toLocaleString()}</td>
-                    <td className={`px-4 py-3 text-sm font-bold ${getBalanceColor(selectedCustomer.balance)}`}>
-                      {selectedCustomer.balance.toLocaleString()}
+                    <td className="px-4 py-3 text-sm font-bold text-red-600">{totalDebit.toLocaleString()} ج.م</td>
+                    <td className="px-4 py-3 text-sm font-bold text-green-600">{totalCredit.toLocaleString()} ج.م</td>
+                    <td className={`px-4 py-3 text-sm font-bold ${finalBalance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {finalBalance >= 0 ? `عليه ${finalBalance.toLocaleString()} ج.م` : `له ${Math.abs(finalBalance).toLocaleString()} ج.م`}
                     </td>
                   </tr>
                 </tfoot>

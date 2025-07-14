@@ -17,6 +17,7 @@ import Settings from './pages/Settings';
 import OrderTracking from './pages/OrderTracking';
 import SalesReturns from './pages/SalesReturns';
 import CustomerAccounts from './pages/CustomerAccounts';
+import UserProfile from './pages/UserProfile';
 
 function App() {
   return (
@@ -150,6 +151,16 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <CustomerAccounts />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/user-profile"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <UserProfile />
                   </Layout>
                 </ProtectedRoute>
               }

@@ -16,8 +16,10 @@ const Layout = ({ children }) => {
         <Navbar onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Page content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-secondary-50 p-6">
-          {children}
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-secondary-50">
+          <div className="p-4 sm:p-6 lg:p-8">
+            {children}
+          </div>
         </main>
       </div>
     </div>

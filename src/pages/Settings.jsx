@@ -41,6 +41,20 @@ const Settings = () => {
   });
 
   const [activeTab, setActiveTab] = useState('general');
+  const [users, setUsers] = useState([
+    { id: 1, name: 'أحمد محمد', email: 'admin@hcp.com', role: 'admin', active: true, lastLogin: new Date() },
+    { id: 2, name: 'سارة أحمد', email: 'supervisor@hcp.com', role: 'supervisor', active: true, lastLogin: new Date() },
+    { id: 3, name: 'محمد علي', email: 'sales@hcp.com', role: 'sales', active: true, lastLogin: new Date() },
+    { id: 4, name: 'فاطمة حسن', email: 'user@hcp.com', role: 'user', active: false, lastLogin: new Date() }
+  ]);
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'user',
+    active: true
+  });
 
   const currencies = [
     { code: 'EGP', name: 'جنيه مصري', symbol: 'ج.م' },
@@ -72,7 +86,66 @@ const Settings = () => {
 
   const handleSaveSettings = () => {
     localStorage.setItem('hcp-erp-settings', JSON.stringify(settings));
+    localStorage.setItem('systemSettings', JSON.stringify(settings)); // For compatibility
     toast.success('تم حفظ الإعدادات بنجاح');
+  };
+
+  const handleAddUser = () => {
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      toast.error('يرجى ملء جميع الحقول المطلوبة');
+      return;
+    }
+
+    const userExists = users.some(user => user.email === newUser.email);
+    if (userExists) {
+      toast.error('البريد الإلكتروني مستخدم بالفعل');
+      return;
+    }
+
+    const user = {
+      id: users.length + 1,
+      ...newUser,
+      lastLogin: new Date()
+    };
+
+    setUsers([...users, user]);
+    setNewUser({ name: '', email: '', password: '', role: 'user', active: true });
+    setShowAddUser(false);
+    toast.success('تم إضافة المستخدم بنجاح');
+  };
+
+  const handleToggleUserStatus = (userId) => {
+    setUsers(users.map(user =>
+      user.id === userId ? { ...user, active: !user.active } : user
+    ));
+    toast.success('تم تحديث حالة المستخدم');
+  };
+
+  const handleDeleteUser = (userId) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا المستخدم؟')) {
+      setUsers(users.filter(user => user.id !== userId));
+      toast.success('تم حذف المستخدم');
+    }
+  };
+
+  const getRoleDisplayName = (role) => {
+    switch (role) {
+      case 'admin': return 'مدير';
+      case 'supervisor': return 'مشرف';
+      case 'sales': return 'مبيعات';
+      case 'user': return 'مستخدم';
+      default: return 'مستخدم';
+    }
+  };
+
+  const getRoleColor = (role) => {
+    switch (role) {
+      case 'admin': return 'bg-red-100 text-red-800';
+      case 'supervisor': return 'bg-blue-100 text-blue-800';
+      case 'sales': return 'bg-green-100 text-green-800';
+      case 'user': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   const handleCurrencyChange = (currencyCode) => {
@@ -109,7 +182,8 @@ const Settings = () => {
     { id: 'currency', name: 'العملة', icon: CurrencyDollarIcon },
     { id: 'security', name: 'الأمان', icon: ShieldCheckIcon },
     { id: 'notifications', name: 'الإشعارات', icon: BellIcon },
-    { id: 'orders', name: 'حالات الطلبات', icon: ClockIcon }
+    { id: 'orders', name: 'حالات الطلبات', icon: ClockIcon },
+    ...(hasPermission('Admin') ? [{ id: 'users', name: 'إدارة المستخدمين', icon: UserIcon }] : [])
   ];
 
   if (!hasPermission('Supervisor')) {
@@ -411,6 +485,158 @@ const Settings = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Users Management Tab */}
+          {activeTab === 'users' && hasPermission('Admin') && (
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-medium text-secondary-900">إدارة المستخدمين</h3>
+                <button
+                  onClick={() => setShowAddUser(true)}
+                  className="btn-primary"
+                >
+                  إضافة مستخدم جديد
+                </button>
+              </div>
+
+              {/* Add User Modal */}
+              {showAddUser && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                    <h4 className="text-lg font-medium text-secondary-900 mb-4">إضافة مستخدم جديد</h4>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-secondary-700 mb-2">الاسم</label>
+                        <input
+                          type="text"
+                          className="input-field"
+                          value={newUser.name}
+                          onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-secondary-700 mb-2">البريد الإلكتروني</label>
+                        <input
+                          type="email"
+                          className="input-field"
+                          value={newUser.email}
+                          onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-secondary-700 mb-2">كلمة المرور</label>
+                        <input
+                          type="password"
+                          className="input-field"
+                          value={newUser.password}
+                          onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-secondary-700 mb-2">الدور</label>
+                        <select
+                          className="input-field"
+                          value={newUser.role}
+                          onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                        >
+                          <option value="user">مستخدم</option>
+                          <option value="sales">مبيعات</option>
+                          <option value="supervisor">مشرف</option>
+                          <option value="admin">مدير</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end space-x-3 space-x-reverse mt-6">
+                      <button
+                        onClick={() => setShowAddUser(false)}
+                        className="btn-secondary"
+                      >
+                        إلغاء
+                      </button>
+                      <button
+                        onClick={handleAddUser}
+                        className="btn-primary"
+                      >
+                        إضافة
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Users Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-secondary-200">
+                  <thead className="bg-secondary-50">
+                    <tr>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">المستخدم</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">الدور</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">الحالة</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">آخر دخول</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-secondary-200">
+                    {users.map((user) => (
+                      <tr key={user.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
+                                <UserIcon className="w-5 h-5 text-primary-600" />
+                              </div>
+                            </div>
+                            <div className="mr-4">
+                              <div className="text-sm font-medium text-secondary-900">{user.name}</div>
+                              <div className="text-sm text-secondary-500">{user.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
+                            {getRoleDisplayName(user.role)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {user.active ? 'نشط' : 'معطل'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                          {user.lastLogin.toLocaleDateString('ar-EG')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2 space-x-reverse">
+                            <button
+                              onClick={() => handleToggleUserStatus(user.id)}
+                              className={`${user.active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}
+                            >
+                              {user.active ? 'تعطيل' : 'تفعيل'}
+                            </button>
+                            {user.email !== currentUser?.email && (
+                              <button
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                حذف
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}

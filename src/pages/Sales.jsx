@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  PlusIcon, 
+import {
+  PlusIcon,
   EyeIcon,
   PrinterIcon,
   MagnifyingGlassIcon,
@@ -9,10 +9,12 @@ import {
 } from '@heroicons/react/24/outline';
 import Modal from '../components/Common/Modal';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import toast from 'react-hot-toast';
 
 const Sales = () => {
   const { hasPermission, currentUser } = useAuth();
+  const { customers, products, getCustomerById, getProductById } = useData();
   const [invoices, setInvoices] = useState([]);
   const [filteredInvoices, setFilteredInvoices] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,6 +49,21 @@ const Sales = () => {
   const depositMethods = ['فودافون كاش', 'نقداً', 'تحويل بنكي', 'شيك'];
 
   const invoiceStatuses = ['مسودة', 'مؤكد', 'قيد التنفيذ', 'مكتمل', 'ملغي'];
+
+  // Calculate totals automatically
+  useEffect(() => {
+    const subtotal = formData.items.reduce((sum, item) => {
+      return sum + (item.quantity * item.unitPrice);
+    }, 0);
+
+    const total = subtotal - formData.discount;
+
+    setFormData(prev => ({
+      ...prev,
+      subtotal: subtotal,
+      total: total
+    }));
+  }, [formData.items, formData.discount]);
 
   // Sample data
   useEffect(() => {
@@ -191,8 +208,35 @@ const Sales = () => {
 
   const updateItem = (index, field, value) => {
     const newItems = [...formData.items];
-    newItems[index] = { ...newItems[index], [field]: value };
+
+    if (field === 'productId') {
+      // When product is selected, update product name and price
+      const selectedProduct = getProductById(value);
+      if (selectedProduct) {
+        newItems[index] = {
+          ...newItems[index],
+          productId: value,
+          productName: selectedProduct.name,
+          unitPrice: selectedProduct.price
+        };
+      } else {
+        newItems[index] = { ...newItems[index], [field]: value };
+      }
+    } else {
+      newItems[index] = { ...newItems[index], [field]: value };
+    }
+
     setFormData({ ...formData, items: newItems });
+  };
+
+  // Handle customer selection
+  const handleCustomerChange = (customerId) => {
+    const selectedCustomer = getCustomerById(customerId);
+    setFormData({
+      ...formData,
+      customerId: customerId,
+      customerName: selectedCustomer ? selectedCustomer.name : ''
+    });
   };
 
   const getStatusColor = (status) => {
@@ -356,13 +400,19 @@ const Sales = () => {
               <label className="block text-sm font-medium text-secondary-700 mb-2">
                 اسم العميل *
               </label>
-              <input
-                type="text"
+              <select
                 required
                 className="input-field"
-                value={formData.customerName}
-                onChange={(e) => setFormData({...formData, customerName: e.target.value})}
-              />
+                value={formData.customerId}
+                onChange={(e) => handleCustomerChange(e.target.value)}
+              >
+                <option value="">اختر العميل</option>
+                {customers.map(customer => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
@@ -399,13 +449,18 @@ const Sales = () => {
               {formData.items.map((item, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-3 p-3 border border-secondary-200 rounded-lg">
                   <div>
-                    <input
-                      type="text"
-                      placeholder="اسم المنتج"
+                    <select
                       className="input-field"
-                      value={item.productName}
-                      onChange={(e) => updateItem(index, 'productName', e.target.value)}
-                    />
+                      value={item.productId}
+                      onChange={(e) => updateItem(index, 'productId', e.target.value)}
+                    >
+                      <option value="">اختر المنتج</option>
+                      {products.map(product => (
+                        <option key={product.id} value={product.id}>
+                          {product.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <input
@@ -422,9 +477,10 @@ const Sales = () => {
                       type="number"
                       placeholder="سعر الوحدة"
                       step="0.01"
-                      className="input-field"
+                      className="input-field bg-secondary-50"
                       value={item.unitPrice}
-                      onChange={(e) => updateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                      readOnly
+                      title="السعر يتم تحديده تلقائياً عند اختيار المنتج"
                     />
                   </div>
                   <div className="flex items-center">

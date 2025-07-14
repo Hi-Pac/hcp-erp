@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
+import { DataProvider } from './contexts/DataContext';
 import ProtectedRoute from './components/Common/ProtectedRoute';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
@@ -16,8 +17,9 @@ import Reports from './pages/Reports';
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div className="App">
+      <DataProvider>
+        <Router>
+          <div className="App">
           <Toaster
             position="top-center"
             toastOptions={{
@@ -110,7 +112,8 @@ function App() {
             />
           </Routes>
         </div>
-      </Router>
+        </Router>
+      </DataProvider>
     </AuthProvider>
   );
 }

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  PlusIcon, 
-  PencilIcon, 
-  TrashIcon, 
+import {
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
   DocumentArrowDownIcon,
@@ -10,11 +10,12 @@ import {
 } from '@heroicons/react/24/outline';
 import Modal from '../components/Common/Modal';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import toast from 'react-hot-toast';
 
 const Inventory = () => {
   const { hasPermission, currentUser } = useAuth();
-  const [products, setProducts] = useState([]);
+  const { products, addProduct, updateProduct, deleteProduct } = useData();
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -32,41 +33,10 @@ const Inventory = () => {
 
   const categories = ['الإنشائية', 'الخارجية', 'الديكورية'];
 
-  // Sample data
+  // Initialize filtered products
   useEffect(() => {
-    const sampleProducts = [
-      {
-        id: 1,
-        name: 'دهان أبيض مطفي',
-        category: 'الإنشائية',
-        batches: ['B001', 'B002'],
-        price: 45.50,
-        quantity: 120,
-        minQuantity: 20,
-        description: 'دهان أبيض عالي الجودة للجدران الداخلية',
-        createdBy: 'admin@hcp.com',
-        createdAt: new Date(),
-        updatedBy: null,
-        updatedAt: null
-      },
-      {
-        id: 2,
-        name: 'دهان أزرق خارجي',
-        category: 'الخارجية',
-        batches: ['B003'],
-        price: 52.00,
-        quantity: 85,
-        minQuantity: 15,
-        description: 'دهان مقاوم للعوامل الجوية',
-        createdBy: 'admin@hcp.com',
-        createdAt: new Date(),
-        updatedBy: null,
-        updatedAt: null
-      }
-    ];
-    setProducts(sampleProducts);
-    setFilteredProducts(sampleProducts);
-  }, []);
+    setFilteredProducts(products);
+  }, [products]);
 
   // Filter products
   useEffect(() => {
@@ -88,34 +58,24 @@ const Inventory = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     if (editingProduct) {
       // Update product
-      const updatedProducts = products.map(product =>
-        product.id === editingProduct.id
-          ? {
-              ...formData,
-              id: editingProduct.id,
-              updatedBy: currentUser.email,
-              updatedAt: new Date(),
-              createdBy: product.createdBy,
-              createdAt: product.createdAt
-            }
-          : product
-      );
-      setProducts(updatedProducts);
+      const updatedProductData = {
+        ...formData,
+        updatedBy: currentUser.email,
+        createdBy: editingProduct.createdBy,
+        createdAt: editingProduct.createdAt
+      };
+      updateProduct(editingProduct.id, updatedProductData);
       toast.success('تم تحديث المنتج بنجاح');
     } else {
       // Add new product
-      const newProduct = {
+      const newProductData = {
         ...formData,
-        id: Date.now(),
-        createdBy: currentUser.email,
-        createdAt: new Date(),
-        updatedBy: null,
-        updatedAt: null
+        createdBy: currentUser.email
       };
-      setProducts([...products, newProduct]);
+      addProduct(newProductData);
       toast.success('تم إضافة المنتج بنجاح');
     }
 
@@ -138,7 +98,7 @@ const Inventory = () => {
 
   const handleDelete = (id) => {
     if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
-      setProducts(products.filter(product => product.id !== id));
+      deleteProduct(id);
       toast.success('تم حذف المنتج بنجاح');
     }
   };

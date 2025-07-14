@@ -111,26 +111,26 @@ const Dashboard = () => {
     };
 
     return (
-      <div className="card">
+      <div className="bg-white rounded-lg shadow-sm border border-secondary-200 p-6 hover:shadow-md transition-shadow">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-secondary-600">{title}</p>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-secondary-600 mb-1">{title}</p>
             <p className="text-2xl font-bold text-secondary-900">
               {value.toLocaleString()}{currency ? ' ج.م' : ''}
             </p>
-            <div className="flex items-center mt-2">
+            <div className="flex items-center mt-3">
               {isPositive ? (
                 <ArrowTrendingUpIcon className="w-4 h-4 text-green-500 ml-1" />
               ) : (
                 <ArrowTrendingDownIcon className="w-4 h-4 text-red-500 ml-1" />
               )}
-              <span className={`text-sm ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+              <span className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
                 {Math.abs(growth)}%
               </span>
               <span className="text-sm text-secondary-500 mr-2">من الشهر الماضي</span>
             </div>
           </div>
-          <div className={`p-3 rounded-full ${colorClasses[color]}`}>
+          <div className={`p-3 rounded-full ${colorClasses[color]} flex-shrink-0`}>
             <Icon className="w-6 h-6 text-white" />
           </div>
         </div>
@@ -139,17 +139,17 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-secondary-900">لوحة التحكم</h1>
         <div className="text-sm text-secondary-500">
-          آخر تحديث: {new Date().toLocaleDateString('ar-SA')}
+          آخر تحديث: {new Date().toLocaleDateString('ar-EG')}
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="إجمالي المبيعات"
           value={stats.totalSales}
@@ -182,15 +182,17 @@ const Dashboard = () => {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Sales Chart */}
-        <div className="card">
+        <div className="bg-white rounded-lg shadow-sm border border-secondary-200 p-6">
           <h3 className="text-lg font-semibold text-secondary-900 mb-4">مبيعات الأشهر الستة الماضية</h3>
-          <Line data={salesData} options={chartOptions} />
+          <div className="h-64">
+            <Line data={salesData} options={chartOptions} />
+          </div>
         </div>
 
         {/* Category Distribution */}
-        <div className="card">
+        <div className="bg-white rounded-lg shadow-sm border border-secondary-200 p-6">
           <h3 className="text-lg font-semibold text-secondary-900 mb-4">توزيع المبيعات حسب الفئة</h3>
           <div className="h-64 flex items-center justify-center">
             <Doughnut data={categoryData} />
@@ -199,15 +201,17 @@ const Dashboard = () => {
       </div>
 
       {/* Monthly Orders and Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Monthly Orders */}
-        <div className="card">
+        <div className="bg-white rounded-lg shadow-sm border border-secondary-200 p-6">
           <h3 className="text-lg font-semibold text-secondary-900 mb-4">الطلبات الشهرية</h3>
-          <Bar data={monthlyOrdersData} options={chartOptions} />
+          <div className="h-64">
+            <Bar data={monthlyOrdersData} options={chartOptions} />
+          </div>
         </div>
 
         {/* Recent Activity */}
-        <div className="card">
+        <div className="bg-white rounded-lg shadow-sm border border-secondary-200 p-6">
           <h3 className="text-lg font-semibold text-secondary-900 mb-4">النشاط الأخير</h3>
           <div className="space-y-4">
             <div className="flex items-center p-3 bg-primary-50 rounded-lg">

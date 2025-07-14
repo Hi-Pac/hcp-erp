@@ -256,7 +256,7 @@ const CustomerAccounts = () => {
         </head>
         <body>
           <div class="header">
-            <h1>شركة دلتا للدهانات الحديثة</h1>
+            <h1>شركة الحرمين للدهانات الحديثة</h1>
             <h2>كشف حساب العميل</h2>
           </div>
           <div class="customer-info">

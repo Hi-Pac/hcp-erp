@@ -18,7 +18,7 @@ const Settings = () => {
     currency: 'EGP',
     currencySymbol: 'ج.م',
     autoLogoutTime: 30, // minutes
-    companyName: 'شركة دلتا للدهانات الحديثة',
+    companyName: 'شركة الحرمين للدهانات الحديثة',
     companyAddress: 'القاهرة، مصر',
     companyPhone: '01234567890',
     companyEmail: 'info@deltapaints.com',

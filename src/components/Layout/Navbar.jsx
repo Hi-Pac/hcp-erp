@@ -55,7 +55,7 @@ const Navbar = ({ onMenuClick }) => {
             <Bars3Icon className="w-6 h-6" />
           </button>
           <h1 className="mr-4 text-xl font-semibold text-secondary-900">
-            نظام إدارة الموارد - HCP
+نظام إدارة الموارد - شركة الحرمين
           </h1>
         </div>
 

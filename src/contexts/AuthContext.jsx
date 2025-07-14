@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
         currency: 'EGP',
         currencySymbol: 'ج.م',
         autoLogoutTime: 30, // 30 minutes default
-        companyName: 'شركة دلتا للدهانات الحديثة',
+        companyName: 'شركة الحرمين للدهانات الحديثة',
         companyAddress: 'القاهرة، مصر',
         companyPhone: '01234567890',
         companyEmail: 'info@deltapaints.com',

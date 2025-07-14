@@ -260,9 +260,9 @@ const Sales = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-secondary-900">إدارة المبيعات</h1>
         {hasPermission('User') && (
           <button

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  CurrencyDollarIcon, 
-  ShoppingCartIcon, 
-  UsersIcon, 
+import {
+  CurrencyDollarIcon,
+  ShoppingCartIcon,
+  UsersIcon,
   CubeIcon,
-  TrendingUpIcon,
-  TrendingDownIcon
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon
 } from '@heroicons/react/24/outline';
 import { Line, Doughnut, Bar } from 'react-chartjs-2';
 import {
@@ -118,9 +118,9 @@ const Dashboard = () => {
             <p className="text-2xl font-bold text-secondary-900">{value.toLocaleString()}</p>
             <div className="flex items-center mt-2">
               {isPositive ? (
-                <TrendingUpIcon className="w-4 h-4 text-green-500 ml-1" />
+                <ArrowTrendingUpIcon className="w-4 h-4 text-green-500 ml-1" />
               ) : (
-                <TrendingDownIcon className="w-4 h-4 text-red-500 ml-1" />
+                <ArrowTrendingDownIcon className="w-4 h-4 text-red-500 ml-1" />
               )}
               <span className={`text-sm ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
                 {Math.abs(growth)}%

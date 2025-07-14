@@ -25,6 +25,24 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [lastActivity, setLastActivity] = useState(Date.now());
 
+  // Initialize default settings if not exists
+  useEffect(() => {
+    const existingSettings = localStorage.getItem('systemSettings');
+    if (!existingSettings) {
+      const defaultSettings = {
+        currency: 'EGP',
+        currencySymbol: 'ج.م',
+        autoLogoutTime: 30, // 30 minutes default
+        companyName: 'شركة دلتا للدهانات الحديثة',
+        companyAddress: 'القاهرة، مصر',
+        companyPhone: '01234567890',
+        companyEmail: 'info@deltapaints.com',
+        taxNumber: '123456789'
+      };
+      localStorage.setItem('systemSettings', JSON.stringify(defaultSettings));
+    }
+  }, []);
+
   // Auto logout based on system settings
   useEffect(() => {
     const checkInactivity = () => {
@@ -80,10 +98,31 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Login function
+  // Demo users for testing
+  const demoUsers = {
+    'admin@hcp.com': { password: 'admin123', role: 'admin', name: 'مدير النظام' },
+    'supervisor@hcp.com': { password: 'supervisor123', role: 'supervisor', name: 'مشرف النظام' },
+    'sales@hcp.com': { password: 'sales123', role: 'sales', name: 'موظف مبيعات' },
+    'user@hcp.com': { password: 'user123', role: 'user', name: 'مستخدم عادي' }
+  };
+
+  // Login function (using demo data for now)
   const login = async (email, password) => {
     try {
       setLoading(true);
+
+      // Check demo users first
+      const demoUser = demoUsers[email];
+      if (demoUser && demoUser.password === password) {
+        const user = { email, displayName: demoUser.name, uid: email };
+        setCurrentUser(user);
+        setUserRole(demoUser.role);
+        setLastActivity(Date.now());
+        toast.success('تم تسجيل الدخول بنجاح');
+        return { user };
+      }
+
+      // Fallback to Firebase if demo user not found
       const result = await signInWithEmailAndPassword(auth, email, password);
       const role = await getUserRole(result.user.uid);
       setUserRole(role);
@@ -92,7 +131,7 @@ export const AuthProvider = ({ children }) => {
       return result;
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('خطأ في تسجيل الدخول: ' + error.message);
+      toast.error('خطأ في تسجيل الدخول: بيانات غير صحيحة');
       throw error;
     } finally {
       setLoading(false);
@@ -128,6 +167,15 @@ export const AuthProvider = ({ children }) => {
   // Logout function
   const logout = async () => {
     try {
+      // For demo users, just clear local state
+      if (currentUser && demoUsers[currentUser.email]) {
+        setCurrentUser(null);
+        setUserRole(null);
+        toast.success('تم تسجيل الخروج بنجاح');
+        return;
+      }
+
+      // For Firebase users
       await signOut(auth);
       setCurrentUser(null);
       setUserRole(null);
@@ -141,14 +189,19 @@ export const AuthProvider = ({ children }) => {
   // Check permissions
   const hasPermission = (requiredRole) => {
     const roleHierarchy = {
-      'Admin': 3,
-      'Supervisor': 2,
+      'admin': 4,
+      'Admin': 4,
+      'supervisor': 3,
+      'Supervisor': 3,
+      'sales': 2,
+      'Sales': 2,
+      'user': 1,
       'User': 1
     };
-    
+
     const userLevel = roleHierarchy[userRole] || 0;
     const requiredLevel = roleHierarchy[requiredRole] || 0;
-    
+
     return userLevel >= requiredLevel;
   };
 

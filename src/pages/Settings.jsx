@@ -78,7 +78,7 @@ const Settings = () => {
 
   // Load settings from localStorage
   useEffect(() => {
-    const savedSettings = localStorage.getItem('hcp-erp-settings');
+    const savedSettings = localStorage.getItem('systemSettings') || localStorage.getItem('hcp-erp-settings');
     if (savedSettings) {
       setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
     }
@@ -186,7 +186,7 @@ const Settings = () => {
     ...(hasPermission('Admin') ? [{ id: 'users', name: 'إدارة المستخدمين', icon: UserIcon }] : [])
   ];
 
-  if (!hasPermission('Supervisor')) {
+  if (!hasPermission('Supervisor') && !hasPermission('Admin')) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">

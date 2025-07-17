@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   CogIcon,
   CurrencyDollarIcon,
   ClockIcon,
@@ -7,9 +7,12 @@ import {
   UserIcon,
   ShieldCheckIcon,
   DocumentTextIcon,
-  GlobeAltIcon
+  GlobeAltIcon,
+  WrenchScrewdriverIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
+import { runFullFirebaseTest, getFirebaseDiagnostics } from '../utils/testFirebase';
+import SupabaseTest from '../components/SupabaseTest';
 import toast from 'react-hot-toast';
 
 const Settings = () => {
@@ -56,6 +59,10 @@ const Settings = () => {
     active: true
   });
 
+  // Firebase testing states
+  const [firebaseTestResults, setFirebaseTestResults] = useState(null);
+  const [isTestingFirebase, setIsTestingFirebase] = useState(false);
+
   const currencies = [
     { code: 'EGP', name: 'جنيه مصري', symbol: 'ج.م' },
     { code: 'USD', name: 'دولار أمريكي', symbol: '$' },
@@ -88,6 +95,42 @@ const Settings = () => {
     localStorage.setItem('hcp-erp-settings', JSON.stringify(settings));
     localStorage.setItem('systemSettings', JSON.stringify(settings)); // For compatibility
     toast.success('تم حفظ الإعدادات بنجاح');
+  };
+
+  // Firebase testing functions
+  const handleTestFirebase = async () => {
+    setIsTestingFirebase(true);
+    setFirebaseTestResults(null);
+
+    try {
+      toast.loading('جاري اختبار اتصال Firebase...', { id: 'firebase-test' });
+
+      const results = await runFullFirebaseTest();
+      setFirebaseTestResults(results);
+
+      if (results.overall) {
+        toast.success('نجح اختبار Firebase بالكامل!', { id: 'firebase-test' });
+      } else {
+        toast.error('فشل في بعض اختبارات Firebase', { id: 'firebase-test' });
+      }
+
+    } catch (error) {
+      console.error('Error testing Firebase:', error);
+      toast.error('حدث خطأ أثناء اختبار Firebase: ' + error.message, { id: 'firebase-test' });
+      setFirebaseTestResults({
+        overall: false,
+        connection: { success: false, error: error.message },
+        authentication: { success: false, error: error.message }
+      });
+    } finally {
+      setIsTestingFirebase(false);
+    }
+  };
+
+  const handleGetDiagnostics = () => {
+    const diagnostics = getFirebaseDiagnostics();
+    console.log('Firebase Diagnostics:', diagnostics);
+    toast.success('تم عرض معلومات التشخيص في وحدة التحكم');
   };
 
   const handleAddUser = () => {
@@ -182,6 +225,8 @@ const Settings = () => {
     { id: 'currency', name: 'العملة', icon: CurrencyDollarIcon },
     { id: 'security', name: 'الأمان', icon: ShieldCheckIcon },
     { id: 'notifications', name: 'الإشعارات', icon: BellIcon },
+    { id: 'firebase', name: 'اختبار Firebase', icon: WrenchScrewdriverIcon },
+    { id: 'supabase', name: 'اختبار Supabase', icon: WrenchScrewdriverIcon },
     { id: 'orders', name: 'حالات الطلبات', icon: ClockIcon },
     ...(hasPermission('Admin') ? [{ id: 'users', name: 'إدارة المستخدمين', icon: UserIcon }] : [])
   ];
@@ -638,6 +683,123 @@ const Settings = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* Firebase Testing Tab */}
+          {activeTab === 'firebase' && hasPermission('Admin') && (
+            <div className="p-6">
+              <h3 className="text-lg font-medium text-secondary-900 mb-6">اختبار اتصال Firebase</h3>
+
+              <div className="space-y-6">
+                {/* Test Buttons */}
+                <div className="flex space-x-4 space-x-reverse">
+                  <button
+                    onClick={handleTestFirebase}
+                    disabled={isTestingFirebase}
+                    className="btn-primary flex items-center"
+                  >
+                    <WrenchScrewdriverIcon className="w-5 h-5 ml-2" />
+                    {isTestingFirebase ? 'جاري الاختبار...' : 'اختبار Firebase'}
+                  </button>
+
+                  <button
+                    onClick={handleGetDiagnostics}
+                    className="btn-secondary flex items-center"
+                  >
+                    <DocumentTextIcon className="w-5 h-5 ml-2" />
+                    معلومات التشخيص
+                  </button>
+                </div>
+
+                {/* Test Results */}
+                {firebaseTestResults && (
+                  <div className="bg-white border border-secondary-200 rounded-lg p-6">
+                    <h4 className="text-md font-medium text-secondary-900 mb-4">نتائج الاختبار</h4>
+
+                    <div className="space-y-4">
+                      {/* Overall Result */}
+                      <div className={`p-4 rounded-lg ${
+                        firebaseTestResults.overall
+                          ? 'bg-green-50 border border-green-200'
+                          : 'bg-red-50 border border-red-200'
+                      }`}>
+                        <div className="flex items-center">
+                          <span className={`text-lg ${
+                            firebaseTestResults.overall ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {firebaseTestResults.overall ? '✅' : '❌'}
+                          </span>
+                          <span className={`mr-2 font-medium ${
+                            firebaseTestResults.overall ? 'text-green-800' : 'text-red-800'
+                          }`}>
+                            {firebaseTestResults.overall ? 'جميع الاختبارات نجحت' : 'فشل في بعض الاختبارات'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Connection Test */}
+                      <div className="border border-secondary-200 rounded-lg p-4">
+                        <h5 className="font-medium text-secondary-900 mb-2">اختبار الاتصال</h5>
+                        <div className="flex items-center">
+                          <span className={`text-lg ${
+                            firebaseTestResults.connection?.success ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {firebaseTestResults.connection?.success ? '✅' : '❌'}
+                          </span>
+                          <span className="mr-2 text-secondary-700">
+                            {firebaseTestResults.connection?.success ? 'نجح الاتصال' : 'فشل الاتصال'}
+                          </span>
+                        </div>
+                        {firebaseTestResults.connection?.error && (
+                          <p className="text-red-600 text-sm mt-2">
+                            خطأ: {firebaseTestResults.connection.error}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Authentication Test */}
+                      <div className="border border-secondary-200 rounded-lg p-4">
+                        <h5 className="font-medium text-secondary-900 mb-2">اختبار المصادقة</h5>
+                        <div className="flex items-center">
+                          <span className={`text-lg ${
+                            firebaseTestResults.authentication?.success ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {firebaseTestResults.authentication?.success ? '✅' : '❌'}
+                          </span>
+                          <span className="mr-2 text-secondary-700">
+                            {firebaseTestResults.authentication?.success ? 'نجحت المصادقة' : 'فشلت المصادقة'}
+                          </span>
+                        </div>
+                        {firebaseTestResults.authentication?.error && (
+                          <p className="text-red-600 text-sm mt-2">
+                            خطأ: {firebaseTestResults.authentication.error}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Instructions */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-md font-medium text-blue-900 mb-2">تعليمات</h4>
+                  <ul className="text-blue-800 text-sm space-y-1">
+                    <li>• استخدم "اختبار Firebase" للتحقق من الاتصال والمصادقة</li>
+                    <li>• استخدم "معلومات التشخيص" لعرض تفاصيل الإعدادات في وحدة التحكم</li>
+                    <li>• تأكد من إعداد Firebase بشكل صحيح قبل الاختبار</li>
+                    <li>• راجع ملف FIREBASE_SETUP.md للحصول على تعليمات الإعداد</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Supabase Testing Tab */}
+          {activeTab === 'supabase' && hasPermission('Admin') && (
+            <div className="p-6">
+              <h3 className="text-lg font-medium text-secondary-900 mb-6">اختبار اتصال Supabase</h3>
+              <SupabaseTest />
             </div>
           )}
 

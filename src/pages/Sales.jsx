@@ -146,12 +146,22 @@ const Sales = () => {
     setFilteredInvoices(filtered);
   }, [invoices, searchTerm, dateFrom, dateTo, selectedStatus]);
 
-  // Calculate totals
+  // Calculate totals and auto-update discount based on customer percentage
   useEffect(() => {
     const subtotal = formData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    const total = subtotal - formData.discount;
-    setFormData(prev => ({ ...prev, subtotal, total }));
-  }, [formData.items, formData.discount]);
+
+    // Auto-calculate discount if customer has discount percentage
+    let discount = formData.discount;
+    if (formData.customerId) {
+      const selectedCustomer = getCustomerById(formData.customerId);
+      if (selectedCustomer && selectedCustomer.discount) {
+        discount = (subtotal * selectedCustomer.discount) / 100;
+      }
+    }
+
+    const total = subtotal - discount;
+    setFormData(prev => ({ ...prev, subtotal, discount, total }));
+  }, [formData.items, formData.customerId]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -232,13 +242,25 @@ const Sales = () => {
   // Handle customer selection
   const handleCustomerChange = (customerId) => {
     const selectedCustomer = getCustomerById(customerId);
-    const customerDiscount = selectedCustomer ? (selectedCustomer.discount || 0) : 0;
 
-    setFormData({
-      ...formData,
-      customerId: customerId,
-      customerName: selectedCustomer ? selectedCustomer.name : '',
-      discount: customerDiscount
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        customerId: customerId,
+        customerName: selectedCustomer ? selectedCustomer.name : '',
+      };
+
+      // Calculate discount based on customer's discount percentage
+      if (selectedCustomer && selectedCustomer.discount) {
+        const discountPercentage = selectedCustomer.discount;
+        const subtotal = newFormData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+        const discountAmount = (subtotal * discountPercentage) / 100;
+        newFormData.discount = discountAmount;
+      } else {
+        newFormData.discount = 0;
+      }
+
+      return newFormData;
     });
   };
 
@@ -536,7 +558,15 @@ const Sales = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  الخصم
+                  الخصم (ج.م)
+                  {formData.customerId && (() => {
+                    const customer = getCustomerById(formData.customerId);
+                    return customer && customer.discount ? (
+                      <span className="text-xs text-primary-600 block">
+                        (خصم تلقائي {customer.discount}%)
+                      </span>
+                    ) : null;
+                  })()}
                 </label>
                 <input
                   type="number"
@@ -544,6 +574,7 @@ const Sales = () => {
                   className="input-field"
                   value={formData.discount}
                   onChange={(e) => setFormData({...formData, discount: parseFloat(e.target.value) || 0})}
+                  placeholder="0.00"
                 />
               </div>
               <div>
@@ -566,11 +597,14 @@ const Sales = () => {
               <input
                 type="checkbox"
                 id="hasDeposit"
-                className="ml-2"
-                checked={formData.hasDeposit}
-                onChange={(e) => setFormData({...formData, hasDeposit: e.target.checked})}
+                className="ml-2 h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 rounded"
+                checked={formData.hasDeposit || false}
+                onChange={(e) => {
+                  console.log('Checkbox changed:', e.target.checked);
+                  setFormData(prev => ({...prev, hasDeposit: e.target.checked}));
+                }}
               />
-              <label htmlFor="hasDeposit" className="text-sm font-medium text-secondary-700">
+              <label htmlFor="hasDeposit" className="text-sm font-medium text-secondary-700 cursor-pointer">
                 إيداع / عربون مقدم
               </label>
             </div>

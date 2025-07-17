@@ -15,7 +15,7 @@ import toast from 'react-hot-toast';
 
 const Inventory = () => {
   const { hasPermission, currentUser } = useAuth();
-  const { products, addProduct, updateProduct, deleteProduct } = useData();
+  const { products, addProduct, updateProduct, deleteProduct, loading } = useData();
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -56,30 +56,72 @@ const Inventory = () => {
     setFilteredProducts(filtered);
   }, [products, searchTerm, selectedCategory]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('Form submitted with data:', formData);
+    console.log('Current user:', currentUser);
 
-    if (editingProduct) {
-      // Update product
-      const updatedProductData = {
-        ...formData,
-        updatedBy: currentUser.email,
-        createdBy: editingProduct.createdBy,
-        createdAt: editingProduct.createdAt
-      };
-      updateProduct(editingProduct.id, updatedProductData);
-      toast.success('تم تحديث المنتج بنجاح');
-    } else {
-      // Add new product
-      const newProductData = {
-        ...formData,
-        createdBy: currentUser.email
-      };
-      addProduct(newProductData);
-      toast.success('تم إضافة المنتج بنجاح');
+    // Validation
+    if (!formData.name.trim()) {
+      console.log('Validation failed: name is empty');
+      toast.error('يرجى إدخال اسم المنتج');
+      return;
+    }
+    if (!formData.category) {
+      console.log('Validation failed: category is empty');
+      toast.error('يرجى اختيار فئة المنتج');
+      return;
+    }
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      console.log('Validation failed: price is invalid', formData.price);
+      toast.error('يرجى إدخال سعر صحيح للمنتج');
+      return;
+    }
+    if (formData.quantity === '' || parseInt(formData.quantity) < 0) {
+      console.log('Validation failed: quantity is invalid', formData.quantity);
+      toast.error('يرجى إدخال كمية صحيحة للمنتج');
+      return;
     }
 
-    resetForm();
+    console.log('Validation passed, proceeding with save...');
+
+    try {
+      if (editingProduct) {
+        console.log('Updating existing product...');
+        // Update product
+        const updatedProductData = {
+          ...formData,
+          price: parseFloat(formData.price),
+          quantity: parseInt(formData.quantity),
+          minQuantity: parseInt(formData.minQuantity) || 0,
+          updatedBy: currentUser.email,
+          createdBy: editingProduct.createdBy,
+          createdAt: editingProduct.createdAt
+        };
+        console.log('Updated product data:', updatedProductData);
+        await updateProduct(editingProduct.id, updatedProductData);
+      } else {
+        console.log('Adding new product...');
+        // Add new product
+        const newProductData = {
+          ...formData,
+          price: parseFloat(formData.price),
+          quantity: parseInt(formData.quantity),
+          minQuantity: parseInt(formData.minQuantity) || 0,
+          createdBy: currentUser.email
+        };
+        console.log('New product data:', newProductData);
+        console.log('Calling addProduct function...');
+        const result = await addProduct(newProductData);
+        console.log('addProduct result:', result);
+      }
+
+      console.log('Calling resetForm...');
+      resetForm();
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast.error('حدث خطأ أثناء حفظ المنتج: ' + error.message);
+    }
   };
 
   const handleEdit = (product) => {
@@ -96,10 +138,13 @@ const Inventory = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
-      deleteProduct(id);
-      toast.success('تم حذف المنتج بنجاح');
+      try {
+        await deleteProduct(id);
+      } catch (error) {
+        console.error('Error deleting product:', error);
+      }
     }
   };
 
@@ -140,6 +185,17 @@ const Inventory = () => {
       batches: newBatches
     });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">جاري تحميل البيانات...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -229,7 +285,7 @@ const Inventory = () => {
                     ))}
                   </div>
                 </td>
-                <td className="table-cell">{product.price.toFixed(2)} ر.س</td>
+                <td className="table-cell">{parseFloat(product.price || 0).toFixed(2)} ج.م</td>
                 <td className="table-cell">{product.quantity}</td>
                 <td className="table-cell">{product.minQuantity}</td>
                 <td className="table-cell">

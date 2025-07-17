@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار Supabase</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        button { padding: 10px 20px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>اختبار اتصال Supabase</h1>
+    
+    <button onclick="testConnection()">اختبار الاتصال</button>
+    <button onclick="testAddProduct()">اختبار إضافة منتج</button>
+    <button onclick="testGetProducts()">اختبار جلب المنتجات</button>
+    
+    <div id="results"></div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
+        
+        const supabaseUrl = 'https://qtkizwqjginkmwoackjm.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF0a2l6d3FqZ2lua213b2Fja2ptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1Nzg3NDgsImV4cCI6MjA2ODE1NDc0OH0.1kLdAHV2uLaAoHnaL7coI35yA5gsZt1c4QOKncSBzTs';
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        function addResult(message, isSuccess = true) {
+            const div = document.createElement('div');
+            div.className = `result ${isSuccess ? 'success' : 'error'}`;
+            div.textContent = message;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        window.testConnection = async function() {
+            try {
+                addResult('🔄 جاري اختبار الاتصال...');
+                
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('count', { count: 'exact', head: true });
+                
+                if (error) {
+                    addResult('❌ خطأ في الاتصال: ' + error.message, false);
+                } else {
+                    addResult('✅ نجح الاتصال بـ Supabase!');
+                }
+            } catch (error) {
+                addResult('❌ خطأ: ' + error.message, false);
+            }
+        };
+        
+        window.testGetProducts = async function() {
+            try {
+                addResult('🔄 جاري جلب المنتجات...');
+                
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('*')
+                    .limit(5);
+                
+                if (error) {
+                    addResult('❌ خطأ في جلب المنتجات: ' + error.message, false);
+                } else {
+                    addResult(`✅ تم جلب ${data.length} منتج بنجاح`);
+                    data.forEach(product => {
+                        addResult(`📦 ${product.name} - ${product.price} جنيه`);
+                    });
+                }
+            } catch (error) {
+                addResult('❌ خطأ: ' + error.message, false);
+            }
+        };
+        
+        window.testAddProduct = async function() {
+            try {
+                addResult('🔄 جاري إضافة منتج تجريبي...');
+                
+                const testProduct = {
+                    name: 'منتج تجريبي - ' + new Date().toLocaleTimeString(),
+                    category: 'اختبار',
+                    price: 99.99,
+                    quantity: 10,
+                    min_quantity: 5,
+                    description: 'منتج تجريبي لاختبار الاتصال',
+                    batches: ['TEST001'],
+                    created_by: 'test@hcp.com'
+                };
+                
+                const { data, error } = await supabase
+                    .from('products')
+                    .insert([testProduct])
+                    .select()
+                    .single();
+                
+                if (error) {
+                    addResult('❌ خطأ في إضافة المنتج: ' + error.message, false);
+                } else {
+                    addResult('✅ تم إضافة المنتج بنجاح: ' + data.name);
+                }
+            } catch (error) {
+                addResult('❌ خطأ: ' + error.message, false);
+            }
+        };
+        
+        // اختبار تلقائي عند تحميل الصفحة
+        window.addEventListener('load', () => {
+            testConnection();
+        });
+    </script>
+</body>
+</html>

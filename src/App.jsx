@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
+import { initializeFirebaseData } from './utils/initializeFirebaseData';
 import ProtectedRoute from './components/Common/ProtectedRoute';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
@@ -20,6 +21,11 @@ import CustomerAccounts from './pages/CustomerAccounts';
 import UserProfile from './pages/UserProfile';
 
 function App() {
+  useEffect(() => {
+    // Initialize Firebase data on app start
+    initializeFirebaseData().catch(console.error);
+  }, []);
+
   return (
     <AuthProvider>
       <DataProvider>

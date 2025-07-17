@@ -122,25 +122,30 @@ const Sales = () => {
 
   // Filter invoices - استخدام sales بدلاً من invoices
   useEffect(() => {
+    console.log('Sales data from Supabase:', sales);
     let filtered = sales;
 
     if (searchTerm) {
       filtered = filtered.filter(invoice =>
-        invoice.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+        (invoice.order_number || invoice.orderNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (invoice.customer_name || invoice.customerName || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     if (dateFrom) {
-      filtered = filtered.filter(invoice => new Date(invoice.date) >= new Date(dateFrom));
+      filtered = filtered.filter(invoice => new Date(invoice.created_at || invoice.date) >= new Date(dateFrom));
     }
 
     if (dateTo) {
-      filtered = filtered.filter(invoice => new Date(invoice.date) <= new Date(dateTo));
+      filtered = filtered.filter(invoice => new Date(invoice.created_at || invoice.date) <= new Date(dateTo));
     }
 
     if (selectedStatus) {
-      filtered = filtered.filter(invoice => invoice.status === selectedStatus);
+      filtered = filtered.filter(invoice =>
+        (invoice.payment_status || invoice.status) === selectedStatus ||
+        (selectedStatus === 'مدفوع' && invoice.payment_status === 'paid') ||
+        (selectedStatus === 'معلق' && invoice.payment_status === 'pending')
+      );
     }
 
     setFilteredInvoices(filtered);
@@ -285,6 +290,12 @@ const Sales = () => {
         return 'bg-green-100 text-green-800';
       case 'ملغي':
         return 'bg-red-100 text-red-800';
+      case 'paid':
+      case 'مدفوع':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+      case 'معلق':
+        return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-secondary-100 text-secondary-800';
     }
@@ -387,17 +398,17 @@ const Sales = () => {
           <tbody className="bg-white divide-y divide-secondary-200">
             {filteredInvoices.map((invoice) => (
               <tr key={invoice.id} className="hover:bg-secondary-50">
-                <td className="table-cell font-medium">{invoice.orderNumber}</td>
-                <td className="table-cell">{invoice.customerName}</td>
-                <td className="table-cell">{new Date(invoice.date).toLocaleDateString('ar-SA')}</td>
-                <td className="table-cell font-medium">{(invoice.total || 0).toFixed(2)} ج.م</td>
-                <td className="table-cell text-sm">{invoice.paymentMethod}</td>
+                <td className="table-cell font-medium">{invoice.order_number || invoice.orderNumber || `ORD-${invoice.id}`}</td>
+                <td className="table-cell">{invoice.customer_name || invoice.customerName || 'غير محدد'}</td>
+                <td className="table-cell">{new Date(invoice.created_at || invoice.date || new Date()).toLocaleDateString('ar-SA')}</td>
+                <td className="table-cell font-medium">{(invoice.final_amount || invoice.total || 0).toFixed(2)} ج.م</td>
+                <td className="table-cell text-sm">{invoice.payment_method || invoice.paymentMethod || 'غير محدد'}</td>
                 <td className="table-cell">
-                  <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(invoice.status)}`}>
-                    {invoice.status}
+                  <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(invoice.payment_status || invoice.status || 'pending')}`}>
+                    {invoice.payment_status === 'paid' ? 'مدفوع' : invoice.payment_status === 'pending' ? 'معلق' : invoice.status || 'معلق'}
                   </span>
                 </td>
-                <td className="table-cell text-xs">{invoice.createdBy}</td>
+                <td className="table-cell text-xs">{invoice.created_by || invoice.createdBy || 'غير محدد'}</td>
                 <td className="table-cell">
                   <div className="flex space-x-2 space-x-reverse">
                     <button

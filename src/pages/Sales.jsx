@@ -122,7 +122,6 @@ const Sales = () => {
 
   // Filter invoices - استخدام sales بدلاً من invoices
   useEffect(() => {
-    console.log('Sales data from Supabase:', sales);
     let filtered = sales;
 
     if (searchTerm) {
@@ -190,8 +189,14 @@ const Sales = () => {
         }))
       };
 
-      await addSale(saleData);
+      const newSale = await addSale(saleData);
       resetForm();
+
+      // Show success message and suggest going to order tracking
+      toast.success('تم حفظ الفاتورة بنجاح! يمكنك متابعة حالة الطلب من صفحة تتبع الطلبات', {
+        duration: 4000
+      });
+
     } catch (error) {
       console.error('Error saving sale:', error);
     }
@@ -301,6 +306,61 @@ const Sales = () => {
     }
   };
 
+  // Handle invoice actions
+  const handleViewInvoice = (invoice) => {
+    // Navigate to order tracking page
+    const orderTrackingUrl = `/order-tracking?invoice=${invoice.id}`;
+    toast.success('سيتم توجيهك إلى صفحة تتبع الطلبات لعرض تفاصيل الفاتورة');
+
+    // Open in new tab or navigate
+    window.open(orderTrackingUrl, '_blank');
+  };
+
+  const handlePrintInvoice = (invoice) => {
+    // Create print content
+    const printContent = `
+      <div style="direction: rtl; font-family: Arial, sans-serif; padding: 20px;">
+        <h2 style="text-align: center;">شركة الحرمين للدهانات الحديثة</h2>
+        <h3 style="text-align: center;">فاتورة مبيعات</h3>
+        <hr>
+        <p><strong>رقم الفاتورة:</strong> ${invoice.order_number || invoice.orderNumber || `ORD-${invoice.id}`}</p>
+        <p><strong>العميل:</strong> ${invoice.customer_name || invoice.customerName || 'غير محدد'}</p>
+        <p><strong>التاريخ:</strong> ${new Date(invoice.created_at || invoice.date || new Date()).toLocaleDateString('ar-SA')}</p>
+        <p><strong>المبلغ الإجمالي:</strong> ${(invoice.final_amount || invoice.total || 0).toFixed(2)} ج.م</p>
+        <p><strong>طريقة الدفع:</strong> ${invoice.payment_method || invoice.paymentMethod || 'غير محدد'}</p>
+        <p><strong>الحالة:</strong> ${invoice.payment_status === 'paid' ? 'مدفوع' : 'معلق'}</p>
+      </div>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  const handleExportInvoice = (invoice) => {
+    // Create CSV content
+    const csvContent = `رقم الفاتورة,العميل,التاريخ,المبلغ,طريقة الدفع,الحالة
+${invoice.order_number || `ORD-${invoice.id}`},"${invoice.customer_name || 'غير محدد'}",${new Date(invoice.created_at || new Date()).toLocaleDateString('ar-SA')},${(invoice.final_amount || 0).toFixed(2)},"${invoice.payment_method || 'غير محدد'}","${invoice.payment_status === 'paid' ? 'مدفوع' : 'معلق'}"`;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `invoice-${invoice.id}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('تم تصدير الفاتورة بنجاح');
+  };
+
+  const handleEditInvoice = (invoice) => {
+    // TODO: Open edit modal with invoice data
+    toast.info('سيتم فتح نموذج التعديل قريباً');
+    // يمكن إضافة modal للتعديل هنا لاحقاً
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       {/* Page Header */}
@@ -334,23 +394,23 @@ const Sales = () => {
 
           {/* Date From */}
           <div className="relative">
-            <CalendarIcon className="w-5 h-5 absolute right-3 top-1/2 transform -translate-y-1/2 text-secondary-400" />
             <input
               type="date"
-              className="input-field pr-10"
+              className="input-field"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
+              placeholder="من تاريخ"
             />
           </div>
 
           {/* Date To */}
           <div className="relative">
-            <CalendarIcon className="w-5 h-5 absolute right-3 top-1/2 transform -translate-y-1/2 text-secondary-400" />
             <input
               type="date"
-              className="input-field pr-10"
+              className="input-field"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
+              placeholder="إلى تاريخ"
             />
           </div>
 
@@ -412,17 +472,37 @@ const Sales = () => {
                 <td className="table-cell">
                   <div className="flex space-x-2 space-x-reverse">
                     <button
+                      onClick={() => handleViewInvoice(invoice)}
                       className="text-primary-600 hover:text-primary-900"
                       title="عرض التفاصيل"
                     >
                       <EyeIcon className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => handlePrintInvoice(invoice)}
                       className="text-green-600 hover:text-green-900"
                       title="طباعة الفاتورة"
                     >
                       <PrinterIcon className="w-4 h-4" />
                     </button>
+                    <button
+                      onClick={() => handleExportInvoice(invoice)}
+                      className="text-blue-600 hover:text-blue-900"
+                      title="تصدير الفاتورة"
+                    >
+                      <DocumentArrowDownIcon className="w-4 h-4" />
+                    </button>
+                    {hasPermission('admin') && (
+                      <button
+                        onClick={() => handleEditInvoice(invoice)}
+                        className="text-yellow-600 hover:text-yellow-900"
+                        title="تعديل الفاتورة"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

@@ -390,7 +390,7 @@ const Sales = () => {
                 <td className="table-cell font-medium">{invoice.orderNumber}</td>
                 <td className="table-cell">{invoice.customerName}</td>
                 <td className="table-cell">{new Date(invoice.date).toLocaleDateString('ar-SA')}</td>
-                <td className="table-cell font-medium">{invoice.total.toFixed(2)} ج.م</td>
+                <td className="table-cell font-medium">{(invoice.total || 0).toFixed(2)} ج.م</td>
                 <td className="table-cell text-sm">{invoice.paymentMethod}</td>
                 <td className="table-cell">
                   <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(invoice.status)}`}>
@@ -520,7 +520,7 @@ const Sales = () => {
                   </div>
                     <div className="flex items-center">
                       <span className="text-sm font-medium">
-                        {(item.quantity * item.unitPrice).toFixed(2)} ج.م
+                        {((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)} ج.م
                       </span>
                     </div>
                     <div>
@@ -562,7 +562,7 @@ const Sales = () => {
                   type="text"
                   readOnly
                   className="input-field bg-secondary-100"
-                  value={`${formData.subtotal.toFixed(2)} ج.م`}
+                  value={`${(formData.subtotal || 0).toFixed(2)} ج.م`}
                 />
               </div>
               <div>
@@ -594,7 +594,7 @@ const Sales = () => {
                   type="text"
                   readOnly
                   className="input-field bg-secondary-100 font-bold"
-                  value={`${formData.total.toFixed(2)} ج.م`}
+                  value={`${(formData.total || 0).toFixed(2)} ج.م`}
                 />
               </div>
             </div>

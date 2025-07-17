@@ -14,8 +14,7 @@ import toast from 'react-hot-toast';
 
 const Sales = () => {
   const { hasPermission, currentUser } = useAuth();
-  const { customers, products, getCustomerById, getProductById } = useData();
-  const [invoices, setInvoices] = useState([]);
+  const { customers, products, sales, addSale, deleteSale, getCustomerById, getProductById } = useData();
   const [filteredInvoices, setFilteredInvoices] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -116,13 +115,14 @@ const Sales = () => {
         updatedAt: null
       }
     ];
-    setInvoices(sampleInvoices);
-    setFilteredInvoices(sampleInvoices);
+    // استخدام البيانات من Supabase بدلاً من البيانات التجريبية
+    // setInvoices(sampleInvoices);
+    // setFilteredInvoices(sampleInvoices);
   }, []);
 
-  // Filter invoices
+  // Filter invoices - استخدام sales بدلاً من invoices
   useEffect(() => {
-    let filtered = invoices;
+    let filtered = sales;
 
     if (searchTerm) {
       filtered = filtered.filter(invoice =>
@@ -144,7 +144,7 @@ const Sales = () => {
     }
 
     setFilteredInvoices(filtered);
-  }, [invoices, searchTerm, dateFrom, dateTo, selectedStatus]);
+  }, [sales, searchTerm, dateFrom, dateTo, selectedStatus]);
 
   // Calculate totals and auto-update discount based on customer percentage
   useEffect(() => {
@@ -163,24 +163,33 @@ const Sales = () => {
     setFormData(prev => ({ ...prev, subtotal, discount, total }));
   }, [formData.items, formData.customerId]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    const newInvoice = {
-      ...formData,
-      id: Date.now(),
-      orderNumber: `ORD-2024-${String(invoices.length + 1).padStart(3, '0')}`,
-      date: new Date().toISOString().split('T')[0],
-      status: 'مسودة',
-      createdBy: currentUser.email,
-      createdAt: new Date(),
-      updatedBy: null,
-      updatedAt: null
-    };
 
-    setInvoices([...invoices, newInvoice]);
-    toast.success('تم إنشاء الفاتورة بنجاح');
-    resetForm();
+    try {
+      const saleData = {
+        customerId: formData.customerId,
+        customerName: formData.customerName,
+        totalAmount: formData.subtotal,
+        discountAmount: formData.discount,
+        finalAmount: formData.total,
+        paymentStatus: formData.paymentMethod === 'دفع كامل مقدماً' ? 'paid' : 'pending',
+        notes: formData.notes,
+        createdBy: currentUser.email,
+        items: formData.items.map(item => ({
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.quantity * item.unitPrice
+        }))
+      };
+
+      await addSale(saleData);
+      resetForm();
+    } catch (error) {
+      console.error('Error saving sale:', error);
+    }
   };
 
   const resetForm = () => {

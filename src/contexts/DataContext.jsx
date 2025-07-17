@@ -19,6 +19,9 @@ export const DataProvider = ({ children }) => {
   // Customers state
   const [customers, setCustomers] = useState([]);
 
+  // Sales state
+  const [sales, setSales] = useState([]);
+
   // Loading states
   const [loading, setLoading] = useState(true);
 
@@ -54,6 +57,29 @@ export const DataProvider = ({ children }) => {
           setCustomers(customersData || []);
         }
 
+        // Load sales from Supabase
+        const { data: salesData, error: salesError } = await supabase
+          .from('sales')
+          .select(`
+            *,
+            sale_items (
+              id,
+              product_id,
+              product_name,
+              quantity,
+              unit_price,
+              total_price
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        if (salesError) {
+          console.error('Error loading sales:', salesError);
+          toast.error('خطأ في تحميل المبيعات: ' + salesError.message);
+        } else {
+          setSales(salesData || []);
+        }
+
         // Set up real-time subscriptions
         const productsSubscription = supabase
           .channel('products_changes')
@@ -77,10 +103,22 @@ export const DataProvider = ({ children }) => {
           )
           .subscribe();
 
+        const salesSubscription = supabase
+          .channel('sales_changes')
+          .on('postgres_changes',
+            { event: '*', schema: 'public', table: 'sales' },
+            (payload) => {
+              console.log('Sales change received:', payload);
+              handleSalesRealTimeUpdate(payload);
+            }
+          )
+          .subscribe();
+
         // Cleanup subscriptions on unmount
         return () => {
           productsSubscription.unsubscribe();
           customersSubscription.unsubscribe();
+          salesSubscription.unsubscribe();
         };
 
       } catch (error) {
@@ -117,6 +155,24 @@ export const DataProvider = ({ children }) => {
     const { eventType, new: newRecord, old: oldRecord } = payload;
 
     setCustomers(prev => {
+      switch (eventType) {
+        case 'INSERT':
+          return [newRecord, ...prev];
+        case 'UPDATE':
+          return prev.map(item => item.id === newRecord.id ? newRecord : item);
+        case 'DELETE':
+          return prev.filter(item => item.id !== oldRecord.id);
+        default:
+          return prev;
+      }
+    });
+  };
+
+  // Handle real-time updates for sales
+  const handleSalesRealTimeUpdate = (payload) => {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    setSales(prev => {
       switch (eventType) {
         case 'INSERT':
           return [newRecord, ...prev];
@@ -419,6 +475,9 @@ export const DataProvider = ({ children }) => {
         throw error;
       }
 
+      // تحديث الحالة المحلية فوراً
+      setProducts(prev => [data, ...prev]);
+
       toast.success('تم إضافة المنتج بنجاح');
       return data;
 
@@ -461,6 +520,11 @@ export const DataProvider = ({ children }) => {
         throw error;
       }
 
+      // تحديث الحالة المحلية فوراً
+      setProducts(prev => prev.map(product =>
+        product.id === id ? data : product
+      ));
+
       toast.success('تم تحديث المنتج بنجاح');
       return data;
     } catch (error) {
@@ -482,6 +546,9 @@ export const DataProvider = ({ children }) => {
         console.error('Supabase error:', error);
         throw error;
       }
+
+      // تحديث الحالة المحلية فوراً
+      setProducts(prev => prev.filter(product => product.id !== id));
 
       toast.success('تم حذف المنتج بنجاح');
     } catch (error) {
@@ -523,6 +590,9 @@ export const DataProvider = ({ children }) => {
         throw error;
       }
 
+      // تحديث الحالة المحلية فوراً
+      setCustomers(prev => [data, ...prev]);
+
       toast.success('تم إضافة العميل بنجاح');
       return data;
 
@@ -562,6 +632,11 @@ export const DataProvider = ({ children }) => {
         throw error;
       }
 
+      // تحديث الحالة المحلية فوراً
+      setCustomers(prev => prev.map(customer =>
+        customer.id === id ? data : customer
+      ));
+
       toast.success('تم تحديث العميل بنجاح');
       return data;
     } catch (error) {
@@ -584,6 +659,9 @@ export const DataProvider = ({ children }) => {
         throw error;
       }
 
+      // تحديث الحالة المحلية فوراً
+      setCustomers(prev => prev.filter(customer => customer.id !== id));
+
       toast.success('تم حذف العميل بنجاح');
     } catch (error) {
       console.error('Error deleting customer:', error);
@@ -594,6 +672,113 @@ export const DataProvider = ({ children }) => {
 
   const getCustomerById = (id) => {
     return customers.find(customer => customer.id === parseInt(id));
+  };
+
+  // Sales functions
+  const addSale = async (sale) => {
+    try {
+      console.log('DataContext addSale called with:', sale);
+
+      // إنشاء بيانات المبيعة
+      const newSale = {
+        customer_id: sale.customerId,
+        customer_name: sale.customerName,
+        total_amount: sale.totalAmount,
+        discount_amount: sale.discountAmount || 0,
+        final_amount: sale.finalAmount,
+        payment_status: sale.paymentStatus || 'pending',
+        notes: sale.notes,
+        created_by: sale.createdBy
+      };
+
+      console.log('Adding sale to Supabase:', newSale);
+
+      // إضافة المبيعة إلى Supabase
+      const { data: saleData, error: saleError } = await supabase
+        .from('sales')
+        .insert([newSale])
+        .select()
+        .single();
+
+      if (saleError) {
+        console.error('Supabase error adding sale:', saleError);
+        throw saleError;
+      }
+
+      // إضافة تفاصيل المبيعة
+      const saleItems = sale.items.map(item => ({
+        sale_id: saleData.id,
+        product_id: item.productId,
+        product_name: item.productName,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        total_price: item.totalPrice
+      }));
+
+      const { data: itemsData, error: itemsError } = await supabase
+        .from('sale_items')
+        .insert(saleItems)
+        .select();
+
+      if (itemsError) {
+        console.error('Supabase error adding sale items:', itemsError);
+        throw itemsError;
+      }
+
+      // تحديث كميات المنتجات
+      for (const item of sale.items) {
+        const product = products.find(p => p.id === item.productId);
+        if (product) {
+          const newQuantity = product.quantity - item.quantity;
+          await updateProduct(item.productId, {
+            ...product,
+            quantity: newQuantity,
+            updatedBy: sale.createdBy
+          });
+        }
+      }
+
+      // إضافة التفاصيل للمبيعة
+      const completeSale = {
+        ...saleData,
+        sale_items: itemsData
+      };
+
+      // تحديث الحالة المحلية فوراً
+      setSales(prev => [completeSale, ...prev]);
+
+      toast.success('تم حفظ الفاتورة بنجاح');
+      return completeSale;
+
+    } catch (error) {
+      console.error('Error adding sale:', error);
+      toast.error('خطأ في حفظ الفاتورة: ' + error.message);
+      throw error;
+    }
+  };
+
+  const deleteSale = async (id) => {
+    try {
+      // حذف من Supabase
+      const { error } = await supabase
+        .from('sales')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      // تحديث الحالة المحلية فوراً
+      setSales(prev => prev.filter(sale => sale.id !== id));
+
+      toast.success('تم حذف الفاتورة بنجاح');
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+      toast.error('خطأ في حذف الفاتورة: ' + error.message);
+      throw error;
+    }
   };
 
   const value = {
@@ -610,6 +795,11 @@ export const DataProvider = ({ children }) => {
     updateCustomer,
     deleteCustomer,
     getCustomerById,
+
+    // Sales
+    sales,
+    addSale,
+    deleteSale,
 
     // Loading state
     loading

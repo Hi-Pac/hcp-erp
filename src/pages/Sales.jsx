@@ -27,27 +27,31 @@ const Sales = () => {
     orderNumber: '',
     customerId: '',
     customerName: '',
-    items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }],
+    items: [{ productId: '', productName: '', productCode: '', quantity: 1, unitPrice: 0 }],
     subtotal: 0,
     discount: 0,
     total: 0,
     paymentMethod: '',
-    hasDeposit: false,
-    depositAmount: 0,
-    depositMethod: '',
+    orderStatus: 'معلق', // الحالة الافتراضية
     notes: ''
   });
 
   const paymentMethods = [
-    'تحصيل جزئي مقدم + باقي مع المندوب',
-    'دفع كامل مقدماً',
+    'تحصيل مقدم + الباقى مع المندوب',
+    'دفع كامل مقدما',
     'تحصيل كامل عند التسليم',
-    'آجل كامل'
+    'آجل بالكامل'
   ];
 
-  const depositMethods = ['فودافون كاش', 'نقداً', 'تحويل بنكي', 'شيك'];
-
-  const invoiceStatuses = ['مسودة', 'مؤكد', 'قيد التنفيذ', 'مكتمل', 'ملغي'];
+  const orderStatuses = [
+    'معلق',
+    'تم تقديم الطلب',
+    'قيد التشغيل',
+    'مؤجل',
+    'تم الشحن',
+    'تم التسليم',
+    'ملغي'
+  ];
 
   // Calculate totals automatically
   useEffect(() => {
@@ -141,9 +145,7 @@ const Sales = () => {
 
     if (selectedStatus) {
       filtered = filtered.filter(invoice =>
-        (invoice.payment_status || invoice.status) === selectedStatus ||
-        (selectedStatus === 'مدفوع' && invoice.payment_status === 'paid') ||
-        (selectedStatus === 'معلق' && invoice.payment_status === 'pending')
+        (invoice.order_status || invoice.orderStatus) === selectedStatus
       );
     }
 
@@ -177,12 +179,15 @@ const Sales = () => {
         totalAmount: formData.subtotal,
         discountAmount: formData.discount,
         finalAmount: formData.total,
-        paymentStatus: formData.paymentMethod === 'دفع كامل مقدماً' ? 'paid' : 'pending',
+        paymentMethod: formData.paymentMethod,
+        orderStatus: formData.orderStatus,
+        paymentStatus: formData.paymentMethod === 'دفع كامل مقدما' ? 'paid' : 'pending',
         notes: formData.notes,
         createdBy: currentUser.email,
         items: formData.items.map(item => ({
           productId: item.productId,
           productName: item.productName,
+          productCode: item.productCode,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           totalPrice: item.quantity * item.unitPrice
@@ -207,14 +212,12 @@ const Sales = () => {
       orderNumber: '',
       customerId: '',
       customerName: '',
-      items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }],
+      items: [{ productId: '', productName: '', productCode: '', quantity: 1, unitPrice: 0 }],
       subtotal: 0,
       discount: 0,
       total: 0,
       paymentMethod: '',
-      hasDeposit: false,
-      depositAmount: 0,
-      depositMethod: '',
+      orderStatus: 'معلق',
       notes: ''
     });
     setIsModalOpen(false);
@@ -223,7 +226,7 @@ const Sales = () => {
   const addItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { productId: '', productName: '', quantity: 1, unitPrice: 0 }]
+      items: [...formData.items, { productId: '', productName: '', productCode: '', quantity: 1, unitPrice: 0 }]
     });
   };
 
@@ -285,22 +288,20 @@ const Sales = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'مسودة':
-        return 'bg-secondary-100 text-secondary-800';
-      case 'مؤكد':
-        return 'bg-primary-100 text-primary-800';
-      case 'قيد التنفيذ':
+      case 'معلق':
         return 'bg-yellow-100 text-yellow-800';
-      case 'مكتمل':
+      case 'تم تقديم الطلب':
+        return 'bg-blue-100 text-blue-800';
+      case 'قيد التشغيل':
+        return 'bg-orange-100 text-orange-800';
+      case 'مؤجل':
+        return 'bg-gray-100 text-gray-800';
+      case 'تم الشحن':
+        return 'bg-purple-100 text-purple-800';
+      case 'تم التسليم':
         return 'bg-green-100 text-green-800';
       case 'ملغي':
         return 'bg-red-100 text-red-800';
-      case 'paid':
-      case 'مدفوع':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-      case 'معلق':
-        return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-secondary-100 text-secondary-800';
     }
@@ -421,7 +422,7 @@ ${invoice.order_number || `ORD-${invoice.id}`},"${invoice.customer_name || 'غي
             onChange={(e) => setSelectedStatus(e.target.value)}
           >
             <option value="">جميع الحالات</option>
-            {invoiceStatuses.map(status => (
+            {orderStatuses.map(status => (
               <option key={status} value={status}>{status}</option>
             ))}
           </select>
@@ -464,8 +465,8 @@ ${invoice.order_number || `ORD-${invoice.id}`},"${invoice.customer_name || 'غي
                 <td className="table-cell font-medium">{(invoice.final_amount || invoice.total || 0).toFixed(2)} ج.م</td>
                 <td className="table-cell text-sm">{invoice.payment_method || invoice.paymentMethod || 'غير محدد'}</td>
                 <td className="table-cell">
-                  <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(invoice.payment_status || invoice.status || 'pending')}`}>
-                    {invoice.payment_status === 'paid' ? 'مدفوع' : invoice.payment_status === 'pending' ? 'معلق' : invoice.status || 'معلق'}
+                  <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(invoice.order_status || invoice.orderStatus || 'معلق')}`}>
+                    {invoice.order_status || invoice.orderStatus || 'معلق'}
                   </span>
                 </td>
                 <td className="table-cell text-xs">{invoice.created_by || invoice.createdBy || 'غير محدد'}</td>
@@ -557,6 +558,23 @@ ${invoice.order_number || `ORD-${invoice.id}`},"${invoice.customer_name || 'غي
             </div>
           </div>
 
+          {/* Order Status */}
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              حالة الطلب *
+            </label>
+            <select
+              required
+              className="input-field"
+              value={formData.orderStatus}
+              onChange={(e) => setFormData({...formData, orderStatus: e.target.value})}
+            >
+              {orderStatuses.map(status => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Items */}
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -573,7 +591,7 @@ ${invoice.order_number || `ORD-${invoice.id}`},"${invoice.customer_name || 'غي
             <div className="space-y-3">
               {formData.items.map((item, index) => (
                 <div key={index} className="p-3 border border-secondary-200 rounded-lg space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
                   <div>
                     <select
                       className="input-field"
@@ -587,6 +605,15 @@ ${invoice.order_number || `ORD-${invoice.id}`},"${invoice.customer_name || 'غي
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="كود/باتش المنتج"
+                      className="input-field"
+                      value={item.productCode}
+                      onChange={(e) => updateItem(index, 'productCode', e.target.value)}
+                    />
                   </div>
                   <div>
                     <input
@@ -691,56 +718,7 @@ ${invoice.order_number || `ORD-${invoice.id}`},"${invoice.customer_name || 'غي
             </div>
           </div>
 
-          {/* Deposit */}
-          <div>
-            <div className="flex items-center mb-4">
-              <input
-                type="checkbox"
-                id="hasDeposit"
-                className="ml-2 h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 rounded"
-                checked={formData.hasDeposit || false}
-                onChange={(e) => {
-                  console.log('Checkbox changed:', e.target.checked);
-                  setFormData(prev => ({...prev, hasDeposit: e.target.checked}));
-                }}
-              />
-              <label htmlFor="hasDeposit" className="text-sm font-medium text-secondary-700 cursor-pointer">
-                إيداع / عربون مقدم
-              </label>
-            </div>
-            
-            {formData.hasDeposit && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    مبلغ الإيداع
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="input-field"
-                    value={formData.depositAmount}
-                    onChange={(e) => setFormData({...formData, depositAmount: parseFloat(e.target.value) || 0})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    طريقة الإيداع
-                  </label>
-                  <select
-                    className="input-field"
-                    value={formData.depositMethod}
-                    onChange={(e) => setFormData({...formData, depositMethod: e.target.value})}
-                  >
-                    <option value="">اختر طريقة الإيداع</option>
-                    {depositMethods.map(method => (
-                      <option key={method} value={method}>{method}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-          </div>
+
 
           {/* Notes */}
           <div>

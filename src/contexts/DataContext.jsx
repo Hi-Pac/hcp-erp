@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../supabase/supabaseClient';
+import { checkDatabaseSchema, updateDatabaseSchema } from '../utils/databaseUpdater';
 import toast from 'react-hot-toast';
 
 const DataContext = createContext();
@@ -31,6 +32,12 @@ export const DataProvider = ({ children }) => {
       setLoading(true);
 
       try {
+        // التحقق من قاعدة البيانات وتحديثها إذا لزم الأمر
+        const isSchemaUpdated = await checkDatabaseSchema();
+        if (!isSchemaUpdated) {
+          console.log('تحديث قاعدة البيانات...');
+          await updateDatabaseSchema();
+        }
         // Load products from Supabase
         const { data: productsData, error: productsError } = await supabase
           .from('products')
@@ -66,6 +73,7 @@ export const DataProvider = ({ children }) => {
               id,
               product_id,
               product_name,
+              product_code,
               quantity,
               unit_price,
               total_price
@@ -687,6 +695,9 @@ export const DataProvider = ({ children }) => {
         discount_amount: sale.discountAmount || 0,
         final_amount: sale.finalAmount,
         payment_status: sale.paymentStatus || 'pending',
+        payment_method: sale.paymentMethod || 'غير محدد',
+        order_status: sale.orderStatus || 'معلق',
+        order_number: sale.orderNumber || `ORD-${Date.now()}`,
         notes: sale.notes,
         created_by: sale.createdBy
       };
@@ -710,6 +721,7 @@ export const DataProvider = ({ children }) => {
         sale_id: saleData.id,
         product_id: item.productId,
         product_name: item.productName,
+        product_code: item.productCode || '',
         quantity: item.quantity,
         unit_price: item.unitPrice,
         total_price: item.totalPrice

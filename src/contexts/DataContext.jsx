@@ -766,6 +766,32 @@ export const DataProvider = ({ children }) => {
     }
   };
 
+  const updateSale = async (id, updates) => {
+    try {
+      // تحديث في Supabase
+      const { data, error } = await supabase
+        .from('sales')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // تحديث الحالة المحلية
+      setSales(prev => prev.map(sale =>
+        sale.id === id ? { ...sale, ...data } : sale
+      ));
+
+      toast.success('تم تحديث الفاتورة بنجاح');
+      return data;
+    } catch (error) {
+      console.error('Error updating sale:', error);
+      toast.error('خطأ في تحديث الفاتورة: ' + error.message);
+      throw error;
+    }
+  };
+
   const deleteSale = async (id) => {
     try {
       // حذف من Supabase
@@ -808,6 +834,7 @@ export const DataProvider = ({ children }) => {
     // Sales
     sales,
     addSale,
+    updateSale,
     deleteSale,
 
     // Loading state

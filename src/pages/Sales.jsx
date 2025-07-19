@@ -11,12 +11,15 @@ import Modal from '../components/Common/Modal';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 
 const Sales = () => {
   const { hasPermission, currentUser } = useAuth();
-  const { customers, products, sales, addSale, deleteSale, getCustomerById, getProductById } = useData();
+  const { customers, products, sales, addSale, updateSale, deleteSale, getCustomerById, getProductById } = useData();
   const [filteredInvoices, setFilteredInvoices] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -345,27 +348,64 @@ const Sales = () => {
     printWindow.print();
   };
 
-  const handleExportInvoice = (invoice) => {
-    // Create CSV content
-    const csvContent = `رقم الفاتورة,العميل,التاريخ,المبلغ,طريقة الدفع,الحالة
-${invoice.order_number || `ORD-${invoice.id}`},"${invoice.customer_name || 'غير محدد'}",${new Date(invoice.created_at || new Date()).toLocaleDateString('ar-SA')},${(invoice.final_amount || 0).toFixed(2)},"${invoice.payment_method || 'غير محدد'}","${invoice.payment_status === 'paid' ? 'مدفوع' : 'معلق'}"`;
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `invoice-${invoice.id}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('تم تصدير الفاتورة بنجاح');
+  // دالة عرض تفاصيل الفاتورة في نافذة منبثقة
+  const handleViewInvoiceDetails = (invoice) => {
+    setSelectedInvoice(invoice);
+    setIsDetailsModalOpen(true);
   };
 
+  // دالة حذف الفاتورة (للمدير فقط)
+  const handleDeleteInvoice = async (invoice) => {
+    if (!hasPermission('admin')) {
+      toast.error('غير مسموح لك بحذف الفواتير');
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: 'تأكيد الحذف',
+      text: `هل أنت متأكد من حذف الفاتورة ${invoice.order_number || `ORD-${invoice.id}`}؟`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'نعم، احذف',
+      cancelButtonText: 'إلغاء'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await deleteSale(invoice.id);
+        toast.success('تم حذف الفاتورة بنجاح');
+      } catch (error) {
+        console.error('Error deleting invoice:', error);
+        toast.error('خطأ في حذف الفاتورة');
+      }
+    }
+  };
+
+  // دالة تعديل الفاتورة (للمدير فقط)
   const handleEditInvoice = (invoice) => {
-    // TODO: Open edit modal with invoice data
-    toast.info('سيتم فتح نموذج التعديل قريباً');
-    // يمكن إضافة modal للتعديل هنا لاحقاً
+    if (!hasPermission('admin')) {
+      toast.error('غير مسموح لك بتعديل الفواتير');
+      return;
+    }
+
+    // تحويل بيانات الفاتورة لصيغة النموذج
+    const invoiceData = {
+      orderNumber: invoice.order_number || `ORD-${invoice.id}`,
+      customerId: invoice.customer_id || invoice.customerId || '',
+      customerName: invoice.customer_name || invoice.customerName || '',
+      items: invoice.sale_items || invoice.items || [{ productId: '', productName: '', productCode: '', quantity: 1, unitPrice: 0 }],
+      subtotal: invoice.total_amount || invoice.totalAmount || 0,
+      discount: invoice.discount_amount || invoice.discountAmount || 0,
+      total: invoice.final_amount || invoice.finalAmount || 0,
+      paymentMethod: invoice.payment_method || invoice.paymentMethod || '',
+      orderStatus: invoice.order_status || invoice.orderStatus || 'معلق',
+      notes: invoice.notes || ''
+    };
+
+    setFormData(invoiceData);
+    setIsModalOpen(true);
   };
 
   return (
@@ -479,9 +519,9 @@ ${invoice.order_number || `ORD-${invoice.id}`},"${invoice.customer_name || 'غي
                 <td className="table-cell">
                   <div className="flex space-x-2 space-x-reverse">
                     <button
-                      onClick={() => handleViewInvoice(invoice)}
+                      onClick={() => handleViewInvoiceDetails(invoice)}
                       className="text-primary-600 hover:text-primary-900"
-                      title="عرض التفاصيل"
+                      title="عرض تفاصيل الفاتورة"
                     >
                       <EyeIcon className="w-4 h-4" />
                     </button>
@@ -492,23 +532,27 @@ ${invoice.order_number || `ORD-${invoice.id}`},"${invoice.customer_name || 'غي
                     >
                       <PrinterIcon className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => handleExportInvoice(invoice)}
-                      className="text-blue-600 hover:text-blue-900"
-                      title="تصدير الفاتورة"
-                    >
-                      <DocumentArrowDownIcon className="w-4 h-4" />
-                    </button>
                     {hasPermission('admin') && (
-                      <button
-                        onClick={() => handleEditInvoice(invoice)}
-                        className="text-yellow-600 hover:text-yellow-900"
-                        title="تعديل الفاتورة"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handleEditInvoice(invoice)}
+                          className="text-yellow-600 hover:text-yellow-900"
+                          title="تعديل الفاتورة"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteInvoice(invoice)}
+                          className="text-red-600 hover:text-red-900"
+                          title="حذف الفاتورة"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </>
                     )}
                   </div>
                 </td>
@@ -757,6 +801,122 @@ ${invoice.order_number || `ORD-${invoice.id}`},"${invoice.customer_name || 'غي
           </div>
         </form>
       </Modal>
+
+      {/* Invoice Details Modal */}
+      {isDetailsModalOpen && selectedInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-secondary-900">
+                تفاصيل الفاتورة {selectedInvoice.order_number || `ORD-${selectedInvoice.id}`}
+              </h2>
+              <button
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="text-secondary-400 hover:text-secondary-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-secondary-800">معلومات الفاتورة</h3>
+                <div className="space-y-2">
+                  <p><span className="font-medium">رقم الفاتورة:</span> {selectedInvoice.order_number || `ORD-${selectedInvoice.id}`}</p>
+                  <p><span className="font-medium">التاريخ:</span> {new Date(selectedInvoice.created_at || new Date()).toLocaleDateString('ar-SA')}</p>
+                  <p><span className="font-medium">الوقت:</span> {new Date(selectedInvoice.created_at || new Date()).toLocaleTimeString('ar-SA')}</p>
+                  <p><span className="font-medium">طريقة الدفع:</span> {selectedInvoice.payment_method || 'غير محدد'}</p>
+                  <p><span className="font-medium">الحالة:</span>
+                    <span className={`ml-2 px-2 py-1 rounded-full text-xs ${getStatusColor(selectedInvoice.order_status || 'معلق')}`}>
+                      {selectedInvoice.order_status || 'معلق'}
+                    </span>
+                  </p>
+                  <p><span className="font-medium">تم الإنشاء بواسطة:</span> {selectedInvoice.created_by || 'غير محدد'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-secondary-800">معلومات العميل</h3>
+                <div className="space-y-2">
+                  <p><span className="font-medium">اسم العميل:</span> {selectedInvoice.customer_name || 'غير محدد'}</p>
+                  <p><span className="font-medium">رقم العميل:</span> {selectedInvoice.customer_id || 'غير محدد'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Items Table */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-secondary-800 mb-4">الأصناف</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white border border-secondary-200">
+                  <thead className="bg-secondary-50">
+                    <tr>
+                      <th className="table-header">المنتج</th>
+                      <th className="table-header">الكمية</th>
+                      <th className="table-header">السعر</th>
+                      <th className="table-header">الإجمالي</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(selectedInvoice.sale_items || selectedInvoice.items || []).map((item, index) => (
+                      <tr key={index} className="border-b border-secondary-200">
+                        <td className="table-cell">{item.product_name || item.productName || 'غير محدد'}</td>
+                        <td className="table-cell">{item.quantity || 0}</td>
+                        <td className="table-cell">{(item.unit_price || item.unitPrice || 0).toFixed(2)} ر.س</td>
+                        <td className="table-cell">{((item.quantity || 0) * (item.unit_price || item.unitPrice || 0)).toFixed(2)} ر.س</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Totals */}
+            <div className="border-t pt-4">
+              <div className="flex justify-end">
+                <div className="w-64 space-y-2">
+                  <div className="flex justify-between">
+                    <span>المجموع الفرعي:</span>
+                    <span>{(selectedInvoice.total_amount || selectedInvoice.totalAmount || 0).toFixed(2)} ر.س</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>الخصم:</span>
+                    <span>{(selectedInvoice.discount_amount || selectedInvoice.discountAmount || 0).toFixed(2)} ر.س</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-lg border-t pt-2">
+                    <span>الإجمالي النهائي:</span>
+                    <span>{(selectedInvoice.final_amount || selectedInvoice.finalAmount || 0).toFixed(2)} ر.س</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {selectedInvoice.notes && (
+              <div className="mt-6 p-4 bg-secondary-50 rounded-lg">
+                <h4 className="font-medium text-secondary-800 mb-2">ملاحظات:</h4>
+                <p className="text-secondary-600">{selectedInvoice.notes}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end mt-6 space-x-2 space-x-reverse">
+              <button
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="btn-secondary"
+              >
+                إغلاق
+              </button>
+              <button
+                onClick={() => handlePrintInvoice(selectedInvoice)}
+                className="btn-primary"
+              >
+                طباعة
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

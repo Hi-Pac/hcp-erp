@@ -57,19 +57,22 @@ const OrderTracking = () => {
         'ملغي': 'cancelled'
       };
 
-      const statusId = statusMapping[sale.orderStatus || sale.order_status] || 'pending';
+      // قراءة البيانات من الحقول المؤقتة
+      const orderStatus = sale.order_status_temp || sale.orderStatus || 'معلق';
+      const paymentMethod = sale.payment_method_temp || sale.paymentMethod || 'غير محدد';
+      const statusId = statusMapping[orderStatus] || 'pending';
 
       return {
         id: sale.id,
-        orderNumber: sale.order_number || sale.orderNumber || `ORD-${sale.id}`,
+        orderNumber: `ORD-${sale.id}`,
         customerName: sale.customerName || sale.customer_name || customer?.name || 'غير محدد',
         customerPhone: customer?.phone || 'غير محدد',
-        totalAmount: sale.finalAmount || sale.final_amount || sale.total || 0,
+        totalAmount: sale.finalAmount || sale.final_amount || sale.total_amount || 0,
         status: statusId,
-        paymentMethod: sale.paymentMethod || sale.payment_method || 'غير محدد',
+        paymentMethod: paymentMethod,
         createdAt: new Date(sale.created_at || sale.createdAt || new Date()),
         updatedAt: new Date(sale.updated_at || sale.updatedAt || sale.created_at || sale.createdAt || new Date()),
-        items: sale.items || [],
+        items: sale.sale_items || sale.items || [],
         statusHistory: [
           {
             status: statusId,

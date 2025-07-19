@@ -32,12 +32,12 @@ export const DataProvider = ({ children }) => {
       setLoading(true);
 
       try {
-        // التحقق من قاعدة البيانات وتحديثها إذا لزم الأمر
-        const isSchemaUpdated = await checkDatabaseSchema();
-        if (!isSchemaUpdated) {
-          console.log('تحديث قاعدة البيانات...');
-          await updateDatabaseSchema();
-        }
+        // TODO: إضافة التحقق من قاعدة البيانات لاحقاً
+        // const isSchemaUpdated = await checkDatabaseSchema();
+        // if (!isSchemaUpdated) {
+        //   console.log('تحديث قاعدة البيانات...');
+        //   await updateDatabaseSchema();
+        // }
         // Load products from Supabase
         const { data: productsData, error: productsError } = await supabase
           .from('products')
@@ -73,10 +73,10 @@ export const DataProvider = ({ children }) => {
               id,
               product_id,
               product_name,
-              product_code,
               quantity,
               unit_price,
-              total_price
+              total_price,
+              notes
             )
           `)
           .order('created_at', { ascending: false });
@@ -695,11 +695,11 @@ export const DataProvider = ({ children }) => {
         discount_amount: sale.discountAmount || 0,
         final_amount: sale.finalAmount,
         payment_status: sale.paymentStatus || 'pending',
-        payment_method: sale.paymentMethod || 'غير محدد',
-        order_status: sale.orderStatus || 'معلق',
-        order_number: sale.orderNumber || `ORD-${Date.now()}`,
         notes: sale.notes,
-        created_by: sale.createdBy
+        created_by: sale.createdBy,
+        // حفظ البيانات الإضافية في حقل notes مؤقتاً
+        payment_method_temp: sale.paymentMethod || 'غير محدد',
+        order_status_temp: sale.orderStatus || 'معلق'
       };
 
       console.log('Adding sale to Supabase:', newSale);
@@ -721,10 +721,11 @@ export const DataProvider = ({ children }) => {
         sale_id: saleData.id,
         product_id: item.productId,
         product_name: item.productName,
-        product_code: item.productCode || '',
         quantity: item.quantity,
         unit_price: item.unitPrice,
-        total_price: item.totalPrice
+        total_price: item.totalPrice,
+        // حفظ كود المنتج في ملاحظات العنصر مؤقتاً
+        notes: item.productCode ? `كود المنتج: ${item.productCode}` : null
       }));
 
       const { data: itemsData, error: itemsError } = await supabase

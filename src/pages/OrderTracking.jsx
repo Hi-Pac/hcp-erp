@@ -38,7 +38,12 @@ const OrderTracking = () => {
 
   // Convert sales data to orders format
   useEffect(() => {
+    console.log('OrderTracking useEffect triggered');
+    console.log('Sales data:', sales);
+    console.log('Sales length:', sales?.length);
+
     if (!sales || sales.length === 0) {
+      console.log('No sales data, setting empty orders');
       setOrders([]);
       return;
     }
@@ -100,6 +105,9 @@ const OrderTracking = () => {
 
   // Keep sample orders as fallback for demo
   useEffect(() => {
+    // تعطيل البيانات التجريبية مؤقتاً لاختبار البيانات الحقيقية
+    return;
+
     if (orders.length > 0) return; // Don't load sample if we have real data
 
     const sampleOrders = [

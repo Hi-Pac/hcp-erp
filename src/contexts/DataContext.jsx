@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../supabase/supabaseClient';
-import { checkDatabaseSchema, updateDatabaseSchema } from '../utils/databaseUpdater';
 import toast from 'react-hot-toast';
 
 const DataContext = createContext();
@@ -75,8 +74,7 @@ export const DataProvider = ({ children }) => {
               product_name,
               quantity,
               unit_price,
-              total_price,
-              notes
+              total_price
             )
           `)
           .order('created_at', { ascending: false });
@@ -723,9 +721,7 @@ export const DataProvider = ({ children }) => {
         product_name: item.productName,
         quantity: item.quantity,
         unit_price: item.unitPrice,
-        total_price: item.totalPrice,
-        // حفظ كود المنتج في ملاحظات العنصر مؤقتاً
-        notes: item.productCode ? `كود المنتج: ${item.productCode}` : null
+        total_price: item.totalPrice
       }));
 
       const { data: itemsData, error: itemsError } = await supabase

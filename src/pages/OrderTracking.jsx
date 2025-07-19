@@ -43,8 +43,14 @@ const OrderTracking = () => {
       return;
     }
 
+    console.log('Sales data for order tracking:', sales);
+
     const convertedOrders = sales.map(sale => {
-      const customer = getCustomerById(sale.customerId);
+      console.log('Processing sale:', sale);
+
+      // استخدام customer_id بدلاً من customerId
+      const customerId = sale.customer_id || sale.customerId;
+      const customer = getCustomerById(customerId);
 
       // Map status names to IDs
       const statusMapping = {
@@ -60,15 +66,15 @@ const OrderTracking = () => {
       // قراءة البيانات من الحقول المباشرة
       const orderStatus = sale.order_status || sale.orderStatus || 'معلق';
       const paymentMethod = sale.payment_method || sale.paymentMethod || 'غير محدد';
-      const orderNumber = `ORD-${sale.id}`;
+      const orderNumber = sale.order_number || `ORD-${sale.id}`;
       const statusId = statusMapping[orderStatus] || 'pending';
 
-      return {
+      const convertedOrder = {
         id: sale.id,
         orderNumber: orderNumber,
-        customerName: sale.customerName || sale.customer_name || customer?.name || 'غير محدد',
+        customerName: sale.customer_name || sale.customerName || customer?.name || 'غير محدد',
         customerPhone: customer?.phone || 'غير محدد',
-        totalAmount: sale.finalAmount || sale.final_amount || sale.total_amount || 0,
+        totalAmount: sale.final_amount || sale.finalAmount || sale.total_amount || 0,
         status: statusId,
         paymentMethod: paymentMethod,
         createdAt: new Date(sale.created_at || sale.createdAt || new Date()),
@@ -79,12 +85,16 @@ const OrderTracking = () => {
             status: statusId,
             date: new Date(sale.created_at || sale.createdAt || new Date()),
             note: 'تم إنشاء الطلب',
-            updatedBy: sale.createdBy || sale.created_by || 'النظام'
+            updatedBy: sale.created_by || sale.createdBy || 'النظام'
           }
         ]
       };
+
+      console.log('Converted order:', convertedOrder);
+      return convertedOrder;
     });
 
+    console.log('Final converted orders:', convertedOrders);
     setOrders(convertedOrders);
   }, [sales, customers, getCustomerById]);
 

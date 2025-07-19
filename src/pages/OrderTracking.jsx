@@ -57,22 +57,10 @@ const OrderTracking = () => {
         'ملغي': 'cancelled'
       };
 
-      // قراءة البيانات من حقل notes
-      let extraData = {};
-      try {
-        if (sale.notes) {
-          const parts = sale.notes.split('\n---\n');
-          if (parts.length > 1) {
-            extraData = JSON.parse(parts[parts.length - 1]);
-          }
-        }
-      } catch (e) {
-        console.log('خطأ في قراءة البيانات الإضافية:', e);
-      }
-
-      const orderStatus = extraData.orderStatus || sale.orderStatus || 'معلق';
-      const paymentMethod = extraData.paymentMethod || sale.paymentMethod || 'غير محدد';
-      const orderNumber = extraData.orderNumber || `ORD-${sale.id}`;
+      // قراءة البيانات من الحقول المباشرة
+      const orderStatus = sale.order_status || sale.orderStatus || 'معلق';
+      const paymentMethod = sale.payment_method || sale.paymentMethod || 'غير محدد';
+      const orderNumber = `ORD-${sale.id}`;
       const statusId = statusMapping[orderStatus] || 'pending';
 
       return {
@@ -204,36 +192,10 @@ const OrderTracking = () => {
 
       // تحديث في قاعدة البيانات
       if (updateSale) {
-        // العثور على البيع الأصلي
-        const sale = sales.find(s => s.id === selectedOrder.id);
-        if (sale) {
-          // قراءة البيانات الحالية من notes
-          let extraData = {};
-          try {
-            if (sale.notes) {
-              const parts = sale.notes.split('\n---\n');
-              if (parts.length > 1) {
-                extraData = JSON.parse(parts[parts.length - 1]);
-              }
-            }
-          } catch (e) {
-            console.log('خطأ في قراءة البيانات الحالية:', e);
-          }
-
-          // تحديث البيانات
-          extraData.orderStatus = statusName;
-
-          // إنشاء notes جديد
-          const originalNotes = sale.notes?.split('\n---\n')[0] || '';
-          const newNotes = originalNotes ?
-            `${originalNotes}\n---\n${JSON.stringify(extraData)}` :
-            JSON.stringify(extraData);
-
-          await updateSale(selectedOrder.id, {
-            notes: newNotes,
-            updated_at: new Date().toISOString()
-          });
-        }
+        await updateSale(selectedOrder.id, {
+          order_status: statusName,
+          updated_at: new Date().toISOString()
+        });
       }
 
       const updatedOrders = orders.map(order => {

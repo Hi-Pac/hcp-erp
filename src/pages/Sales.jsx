@@ -309,34 +309,8 @@ const Sales = () => {
 
   // دالة لقراءة طريقة الدفع من البيانات
   const getPaymentMethodFromInvoice = (invoice) => {
-    console.log('Reading payment method for invoice:', invoice);
-
-    // أولاً، جرب الحقول المباشرة
-    if (invoice.payment_method || invoice.paymentMethod) {
-      console.log('Found direct payment method:', invoice.payment_method || invoice.paymentMethod);
-      return invoice.payment_method || invoice.paymentMethod;
-    }
-
-    // ثانياً، جرب قراءة البيانات من notes
-    try {
-      if (invoice.notes) {
-        console.log('Checking notes for payment method:', invoice.notes);
-        const parts = invoice.notes.split('\n---\n');
-        if (parts.length > 1) {
-          const extraData = JSON.parse(parts[parts.length - 1]);
-          console.log('Parsed extra data:', extraData);
-          if (extraData.paymentMethod) {
-            console.log('Found payment method in notes:', extraData.paymentMethod);
-            return extraData.paymentMethod;
-          }
-        }
-      }
-    } catch (e) {
-      console.log('خطأ في قراءة طريقة الدفع من notes:', e);
-    }
-
-    console.log('No payment method found, returning default');
-    return 'غير محدد';
+    // جرب الحقول المباشرة أولاً
+    return invoice.payment_method || invoice.paymentMethod || 'غير محدد';
   };
 
   // Handle invoice actions

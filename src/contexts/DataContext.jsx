@@ -685,20 +685,7 @@ export const DataProvider = ({ children }) => {
     try {
       console.log('DataContext addSale called with:', sale);
 
-      // إنشاء بيانات المبيعة مع حفظ البيانات الإضافية في notes
-      const extraData = {
-        paymentMethod: sale.paymentMethod || 'غير محدد',
-        orderStatus: sale.orderStatus || 'معلق',
-        orderNumber: sale.orderNumber || `ORD-${Date.now()}`
-      };
-
-      console.log('Extra data to save:', extraData);
-
-      const notesWithData = sale.notes ?
-        `${sale.notes}\n---\n${JSON.stringify(extraData)}` :
-        JSON.stringify(extraData);
-
-      console.log('Final notes with data:', notesWithData);
+      // إنشاء بيانات المبيعة
 
       const newSale = {
         customer_id: sale.customerId,
@@ -707,7 +694,9 @@ export const DataProvider = ({ children }) => {
         discount_amount: sale.discountAmount || 0,
         final_amount: sale.finalAmount,
         payment_status: sale.paymentStatus || 'pending',
-        notes: notesWithData,
+        payment_method: sale.paymentMethod || 'غير محدد',
+        order_status: sale.orderStatus || 'معلق',
+        notes: sale.notes || '',
         created_by: sale.createdBy
       };
 

@@ -692,9 +692,13 @@ export const DataProvider = ({ children }) => {
         orderNumber: sale.orderNumber || `ORD-${Date.now()}`
       };
 
+      console.log('Extra data to save:', extraData);
+
       const notesWithData = sale.notes ?
         `${sale.notes}\n---\n${JSON.stringify(extraData)}` :
         JSON.stringify(extraData);
+
+      console.log('Final notes with data:', notesWithData);
 
       const newSale = {
         customer_id: sale.customerId,

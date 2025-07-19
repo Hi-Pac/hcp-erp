@@ -685,7 +685,17 @@ export const DataProvider = ({ children }) => {
     try {
       console.log('DataContext addSale called with:', sale);
 
-      // إنشاء بيانات المبيعة
+      // إنشاء بيانات المبيعة مع حفظ البيانات الإضافية في notes
+      const extraData = {
+        paymentMethod: sale.paymentMethod || 'غير محدد',
+        orderStatus: sale.orderStatus || 'معلق',
+        orderNumber: sale.orderNumber || `ORD-${Date.now()}`
+      };
+
+      const notesWithData = sale.notes ?
+        `${sale.notes}\n---\n${JSON.stringify(extraData)}` :
+        JSON.stringify(extraData);
+
       const newSale = {
         customer_id: sale.customerId,
         customer_name: sale.customerName,
@@ -693,11 +703,8 @@ export const DataProvider = ({ children }) => {
         discount_amount: sale.discountAmount || 0,
         final_amount: sale.finalAmount,
         payment_status: sale.paymentStatus || 'pending',
-        notes: sale.notes,
-        created_by: sale.createdBy,
-        // حفظ البيانات الإضافية في حقل notes مؤقتاً
-        payment_method_temp: sale.paymentMethod || 'غير محدد',
-        order_status_temp: sale.orderStatus || 'معلق'
+        notes: notesWithData,
+        created_by: sale.createdBy
       };
 
       console.log('Adding sale to Supabase:', newSale);

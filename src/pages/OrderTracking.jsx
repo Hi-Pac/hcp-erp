@@ -16,7 +16,7 @@ import toast from 'react-hot-toast';
 
 const OrderTracking = () => {
   const { hasPermission, currentUser } = useAuth();
-  const { sales, customers, getCustomerById } = useData();
+  const { sales, customers, getCustomerById, updateSale } = useData();
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -57,14 +57,27 @@ const OrderTracking = () => {
         'ملغي': 'cancelled'
       };
 
-      // قراءة البيانات من الحقول المؤقتة
-      const orderStatus = sale.order_status_temp || sale.orderStatus || 'معلق';
-      const paymentMethod = sale.payment_method_temp || sale.paymentMethod || 'غير محدد';
+      // قراءة البيانات من حقل notes
+      let extraData = {};
+      try {
+        if (sale.notes) {
+          const parts = sale.notes.split('\n---\n');
+          if (parts.length > 1) {
+            extraData = JSON.parse(parts[parts.length - 1]);
+          }
+        }
+      } catch (e) {
+        console.log('خطأ في قراءة البيانات الإضافية:', e);
+      }
+
+      const orderStatus = extraData.orderStatus || sale.orderStatus || 'معلق';
+      const paymentMethod = extraData.paymentMethod || sale.paymentMethod || 'غير محدد';
+      const orderNumber = extraData.orderNumber || `ORD-${sale.id}`;
       const statusId = statusMapping[orderStatus] || 'pending';
 
       return {
         id: sale.id,
-        orderNumber: `ORD-${sale.id}`,
+        orderNumber: orderNumber,
         customerName: sale.customerName || sale.customer_name || customer?.name || 'غير محدد',
         customerPhone: customer?.phone || 'غير محدد',
         totalAmount: sale.finalAmount || sale.final_amount || sale.total_amount || 0,
@@ -189,8 +202,39 @@ const OrderTracking = () => {
 
       const statusName = statusMapping[newStatus] || 'معلق';
 
-      // TODO: Update in database when updateSale function is available
-      // await updateSale(selectedOrder.id, { orderStatus: statusName });
+      // تحديث في قاعدة البيانات
+      if (updateSale) {
+        // العثور على البيع الأصلي
+        const sale = sales.find(s => s.id === selectedOrder.id);
+        if (sale) {
+          // قراءة البيانات الحالية من notes
+          let extraData = {};
+          try {
+            if (sale.notes) {
+              const parts = sale.notes.split('\n---\n');
+              if (parts.length > 1) {
+                extraData = JSON.parse(parts[parts.length - 1]);
+              }
+            }
+          } catch (e) {
+            console.log('خطأ في قراءة البيانات الحالية:', e);
+          }
+
+          // تحديث البيانات
+          extraData.orderStatus = statusName;
+
+          // إنشاء notes جديد
+          const originalNotes = sale.notes?.split('\n---\n')[0] || '';
+          const newNotes = originalNotes ?
+            `${originalNotes}\n---\n${JSON.stringify(extraData)}` :
+            JSON.stringify(extraData);
+
+          await updateSale(selectedOrder.id, {
+            notes: newNotes,
+            updated_at: new Date().toISOString()
+          });
+        }
+      }
 
       const updatedOrders = orders.map(order => {
         if (order.id === selectedOrder.id) {

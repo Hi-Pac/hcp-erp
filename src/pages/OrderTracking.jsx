@@ -11,10 +11,12 @@ import {
 } from '@heroicons/react/24/outline';
 import Modal from '../components/Common/Modal';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import toast from 'react-hot-toast';
 
 const OrderTracking = () => {
   const { hasPermission, currentUser } = useAuth();
+  const { sales, customers, getCustomerById } = useData();
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -25,6 +27,7 @@ const OrderTracking = () => {
   const [statusNote, setStatusNote] = useState('');
 
   const orderStatuses = [
+    { id: 'pending', name: 'معلق', color: 'gray', icon: ClockIcon },
     { id: 'submitted', name: 'تم تقديم الطلب', color: 'blue', icon: ClockIcon },
     { id: 'processing', name: 'قيد التشغيل', color: 'yellow', icon: PlayIcon },
     { id: 'delayed', name: 'مؤجل', color: 'red', icon: PauseIcon },
@@ -33,8 +36,58 @@ const OrderTracking = () => {
     { id: 'cancelled', name: 'ملغي', color: 'gray', icon: XCircleIcon }
   ];
 
-  // Sample orders data
+  // Convert sales data to orders format
   useEffect(() => {
+    if (!sales || sales.length === 0) {
+      setOrders([]);
+      return;
+    }
+
+    const convertedOrders = sales.map(sale => {
+      const customer = getCustomerById(sale.customerId);
+
+      // Map status names to IDs
+      const statusMapping = {
+        'معلق': 'pending',
+        'تم تقديم الطلب': 'submitted',
+        'قيد التشغيل': 'processing',
+        'مؤجل': 'delayed',
+        'تم الشحن': 'shipped',
+        'تم التسليم': 'delivered',
+        'ملغي': 'cancelled'
+      };
+
+      const statusId = statusMapping[sale.orderStatus || sale.order_status] || 'pending';
+
+      return {
+        id: sale.id,
+        orderNumber: sale.order_number || sale.orderNumber || `ORD-${sale.id}`,
+        customerName: sale.customerName || sale.customer_name || customer?.name || 'غير محدد',
+        customerPhone: customer?.phone || 'غير محدد',
+        totalAmount: sale.finalAmount || sale.final_amount || sale.total || 0,
+        status: statusId,
+        paymentMethod: sale.paymentMethod || sale.payment_method || 'غير محدد',
+        createdAt: new Date(sale.created_at || sale.createdAt || new Date()),
+        updatedAt: new Date(sale.updated_at || sale.updatedAt || sale.created_at || sale.createdAt || new Date()),
+        items: sale.items || [],
+        statusHistory: [
+          {
+            status: statusId,
+            date: new Date(sale.created_at || sale.createdAt || new Date()),
+            note: 'تم إنشاء الطلب',
+            updatedBy: sale.createdBy || sale.created_by || 'النظام'
+          }
+        ]
+      };
+    });
+
+    setOrders(convertedOrders);
+  }, [sales, customers, getCustomerById]);
+
+  // Keep sample orders as fallback for demo
+  useEffect(() => {
+    if (orders.length > 0) return; // Don't load sample if we have real data
+
     const sampleOrders = [
       {
         id: 1,
@@ -91,8 +144,7 @@ const OrderTracking = () => {
       }
     ];
     setOrders(sampleOrders);
-    setFilteredOrders(sampleOrders);
-  }, []);
+  }, [orders.length]);
 
   // Filter orders
   useEffect(() => {
@@ -117,20 +169,37 @@ const OrderTracking = () => {
     return orderStatuses.find(status => status.id === statusId) || orderStatuses[0];
   };
 
-  const handleStatusUpdate = () => {
+  const handleStatusUpdate = async () => {
     if (!selectedOrder || !newStatus) return;
 
-    const updatedOrders = orders.map(order => {
-      if (order.id === selectedOrder.id) {
-        const newStatusHistory = [
-          ...order.statusHistory,
-          {
-            status: newStatus,
-            date: new Date(),
-            note: statusNote || 'تم تحديث حالة الطلب',
-            updatedBy: currentUser.email
-          }
-        ];
+    try {
+      // Map status ID back to Arabic name for database
+      const statusMapping = {
+        'pending': 'معلق',
+        'submitted': 'تم تقديم الطلب',
+        'processing': 'قيد التشغيل',
+        'delayed': 'مؤجل',
+        'shipped': 'تم الشحن',
+        'delivered': 'تم التسليم',
+        'cancelled': 'ملغي'
+      };
+
+      const statusName = statusMapping[newStatus] || 'معلق';
+
+      // TODO: Update in database when updateSale function is available
+      // await updateSale(selectedOrder.id, { orderStatus: statusName });
+
+      const updatedOrders = orders.map(order => {
+        if (order.id === selectedOrder.id) {
+          const newStatusHistory = [
+            ...order.statusHistory,
+            {
+              status: newStatus,
+              date: new Date(),
+              note: statusNote || 'تم تحديث حالة الطلب',
+              updatedBy: currentUser.email
+            }
+          ];
 
         return {
           ...order,
@@ -142,12 +211,17 @@ const OrderTracking = () => {
       return order;
     });
 
-    setOrders(updatedOrders);
-    setIsModalOpen(false);
-    setSelectedOrder(null);
-    setNewStatus('');
-    setStatusNote('');
-    toast.success('تم تحديث حالة الطلب بنجاح');
+      setOrders(updatedOrders);
+      setIsModalOpen(false);
+      setSelectedOrder(null);
+      setNewStatus('');
+      setStatusNote('');
+      toast.success('تم تحديث حالة الطلب بنجاح');
+
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      toast.error('حدث خطأ أثناء تحديث حالة الطلب');
+    }
   };
 
   const openStatusModal = (order) => {

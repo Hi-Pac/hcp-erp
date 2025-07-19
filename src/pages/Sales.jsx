@@ -307,6 +307,31 @@ const Sales = () => {
     }
   };
 
+  // دالة لقراءة طريقة الدفع من البيانات
+  const getPaymentMethodFromInvoice = (invoice) => {
+    // أولاً، جرب الحقول المباشرة
+    if (invoice.payment_method || invoice.paymentMethod) {
+      return invoice.payment_method || invoice.paymentMethod;
+    }
+
+    // ثانياً، جرب قراءة البيانات من notes
+    try {
+      if (invoice.notes) {
+        const parts = invoice.notes.split('\n---\n');
+        if (parts.length > 1) {
+          const extraData = JSON.parse(parts[parts.length - 1]);
+          if (extraData.paymentMethod) {
+            return extraData.paymentMethod;
+          }
+        }
+      }
+    } catch (e) {
+      console.log('خطأ في قراءة طريقة الدفع من notes:', e);
+    }
+
+    return 'غير محدد';
+  };
+
   // Handle invoice actions
   const handleViewInvoice = (invoice) => {
     // Navigate to order tracking page
@@ -463,7 +488,7 @@ ${invoice.order_number || `ORD-${invoice.id}`},"${invoice.customer_name || 'غي
                 <td className="table-cell">{invoice.customer_name || invoice.customerName || 'غير محدد'}</td>
                 <td className="table-cell">{new Date(invoice.created_at || invoice.date || new Date()).toLocaleDateString('ar-SA')}</td>
                 <td className="table-cell font-medium">{(invoice.final_amount || invoice.total || 0).toFixed(2)} ج.م</td>
-                <td className="table-cell text-sm">{invoice.payment_method || invoice.paymentMethod || 'غير محدد'}</td>
+                <td className="table-cell text-sm">{getPaymentMethodFromInvoice(invoice)}</td>
                 <td className="table-cell">
                   <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(invoice.order_status || invoice.orderStatus || 'معلق')}`}>
                     {invoice.order_status || invoice.orderStatus || 'معلق'}

@@ -39,6 +39,21 @@ const Customers = () => {
 
   const customerTypes = ['فرد', 'شركة', 'مؤسسة'];
 
+  // دالة لتنظيف النص وإصلاح مشاكل الترميز
+  const cleanText = (text) => {
+    if (!text) return '';
+
+    // إزالة الرموز الغريبة واستبدالها بالنص الصحيح
+    let cleaned = text.toString();
+
+    // إصلاح بعض مشاكل الترميز الشائعة
+    cleaned = cleaned.replace(/â—�/g, '●');
+    cleaned = cleaned.replace(/â€�/g, '–');
+    cleaned = cleaned.replace(/â€™/g, ''');
+
+    return cleaned;
+  };
+
   // Initialize filtered customers
   useEffect(() => {
     setFilteredCustomers(customers);
@@ -145,27 +160,56 @@ const Customers = () => {
     // قراءة الملف وعرض المعاينة
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target.result;
-      const lines = text.split('\n').filter(line => line.trim());
+      try {
+        let text = e.target.result;
 
-      if (lines.length < 2) {
-        toast.error('الملف يجب أن يحتوي على رأس الأعمدة وبيانات العملاء');
-        return;
-      }
+        // إزالة BOM إذا كان موجوداً
+        if (text.charCodeAt(0) === 0xFEFF) {
+          text = text.slice(1);
+        }
 
-      // تحليل البيانات
-      const headers = lines[0].split(',').map(h => h.trim());
-      const data = lines.slice(1).map(line => {
-        const values = line.split(',').map(v => v.trim());
-        const customer = {};
-        headers.forEach((header, index) => {
-          customer[header] = values[index] || '';
+        const lines = text.split(/\r?\n/).filter(line => line.trim());
+
+        if (lines.length < 2) {
+          toast.error('الملف يجب أن يحتوي على رأس الأعمدة وبيانات العملاء');
+          return;
+        }
+
+        // تحليل البيانات مع دعم أفضل للفواصل
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const data = lines.slice(1).map(line => {
+          // تحليل أفضل للـ CSV مع دعم النصوص المحاطة بعلامات اقتباس
+          const values = [];
+          let current = '';
+          let inQuotes = false;
+
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              values.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          values.push(current.trim()); // آخر قيمة
+
+          const customer = {};
+          headers.forEach((header, index) => {
+            customer[header] = (values[index] || '').replace(/"/g, '');
+          });
+          return customer;
         });
-        return customer;
-      });
 
-      setImportPreview(data);
-      setIsImportModalOpen(true);
+        console.log('Parsed data:', data); // للتشخيص
+        setImportPreview(data);
+        setIsImportModalOpen(true);
+      } catch (error) {
+        console.error('Error parsing CSV:', error);
+        toast.error('خطأ في قراءة الملف. تأكد من أن الملف بصيغة CSV صحيحة');
+      }
     };
 
     reader.readAsText(file, 'UTF-8');
@@ -218,10 +262,17 @@ const Customers = () => {
 
   const downloadSampleCSV = () => {
     const sampleData = `name,phone,address,city,customerType,creditLimit,discount,email,notes
-أحمد محمد علي,01234567890,شارع النيل,القاهرة,فرد,5000,5,ahmed@example.com,عميل مميز
-شركة البناء الحديث,01987654321,المعادي,القاهرة,شركة,50000,10,info@building.com,شركة كبيرة`;
+احمد محمد علي,01234567890,شارع النيل 123,القاهرة,فرد,5000,5,ahmed@example.com,عميل مميز
+فاطمة احمد حسن,01987654321,المعادي,القاهرة,فرد,3000,3,fatma@example.com,عميل جديد
+شركة البناء الحديث,01555666777,مدينة نصر,القاهرة,شركة,50000,10,info@building.com,شركة كبيرة
+محمد عبد الله,01444555666,الزمالك,القاهرة,فرد,7000,7,mohamed@example.com,عميل قديم
+مؤسسة النور للتجارة,01333444555,مصر الجديدة,القاهرة,مؤسسة,25000,8,info@alnour.com,مؤسسة تجارية`;
 
-    const blob = new Blob([sampleData], { type: 'text/csv;charset=utf-8;' });
+    // إضافة BOM للـ UTF-8 لضمان العرض الصحيح في Excel
+    const BOM = '\uFEFF';
+    const csvContent = BOM + sampleData;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -232,6 +283,94 @@ const Customers = () => {
     document.body.removeChild(link);
 
     toast.success('تم تحميل ملف العينة');
+  };
+
+  // دالة إصلاح البيانات الموجودة
+  const handleFixExistingData = async () => {
+    if (!hasPermission('admin')) {
+      toast.error('غير مسموح لك بإصلاح البيانات');
+      return;
+    }
+
+    const result = await toast.promise(
+      (async () => {
+        // إضافة بيانات عملاء تجريبية صحيحة
+        const sampleCustomers = [
+          {
+            name: 'احمد محمد علي',
+            phone: '01234567890',
+            address: 'شارع النيل 123',
+            city: 'القاهرة',
+            customerType: 'فرد',
+            creditLimit: 5000,
+            discount: 5,
+            email: 'ahmed@example.com',
+            notes: 'عميل مميز'
+          },
+          {
+            name: 'فاطمة احمد حسن',
+            phone: '01987654321',
+            address: 'المعادي',
+            city: 'القاهرة',
+            customerType: 'فرد',
+            creditLimit: 3000,
+            discount: 3,
+            email: 'fatma@example.com',
+            notes: 'عميل جديد'
+          },
+          {
+            name: 'شركة البناء الحديث',
+            phone: '01555666777',
+            address: 'مدينة نصر',
+            city: 'القاهرة',
+            customerType: 'شركة',
+            creditLimit: 50000,
+            discount: 10,
+            email: 'info@building.com',
+            notes: 'شركة كبيرة'
+          },
+          {
+            name: 'محمد عبد الله',
+            phone: '01444555666',
+            address: 'الزمالك',
+            city: 'القاهرة',
+            customerType: 'فرد',
+            creditLimit: 7000,
+            discount: 7,
+            email: 'mohamed@example.com',
+            notes: 'عميل قديم'
+          },
+          {
+            name: 'مؤسسة النور للتجارة',
+            phone: '01333444555',
+            address: 'مصر الجديدة',
+            city: 'القاهرة',
+            customerType: 'مؤسسة',
+            creditLimit: 25000,
+            discount: 8,
+            email: 'info@alnour.com',
+            notes: 'مؤسسة تجارية'
+          }
+        ];
+
+        let addedCount = 0;
+        for (const customerData of sampleCustomers) {
+          try {
+            await addCustomer(customerData);
+            addedCount++;
+          } catch (error) {
+            console.error('Error adding customer:', error);
+          }
+        }
+
+        return addedCount;
+      })(),
+      {
+        loading: 'جاري إضافة بيانات العملاء...',
+        success: (count) => `تم إضافة ${count} عميل بنجاح`,
+        error: 'خطأ في إضافة البيانات'
+      }
+    );
   };
 
   const getTypeColor = (type) => {
@@ -281,6 +420,20 @@ const Customers = () => {
                 className="hidden"
               />
             </label>
+
+            {hasPermission('admin') && (
+              <button
+                onClick={handleFixExistingData}
+                className="btn-warning flex items-center space-x-2 space-x-reverse"
+                title="إصلاح البيانات الموجودة"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>إصلاح البيانات</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -348,8 +501,10 @@ const Customers = () => {
               <tr key={customer.id} className="hover:bg-secondary-50">
                 <td className="table-cell">
                   <div>
-                    <div className="font-medium text-secondary-900">{customer.name}</div>
-                    <div className="text-sm text-secondary-500">{customer.email}</div>
+                    <div className="font-medium text-secondary-900" style={{direction: 'rtl'}}>
+                      {customer.name || 'غير محدد'}
+                    </div>
+                    <div className="text-sm text-secondary-500">{customer.email || 'غير محدد'}</div>
                   </div>
                 </td>
                 <td className="table-cell">{customer.phone}</td>

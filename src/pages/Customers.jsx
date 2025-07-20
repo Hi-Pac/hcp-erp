@@ -49,7 +49,7 @@ const Customers = () => {
     // إصلاح بعض مشاكل الترميز الشائعة
     cleaned = cleaned.replace(/â—�/g, '●');
     cleaned = cleaned.replace(/â€�/g, '–');
-    cleaned = cleaned.replace(/â€™/g, ''');
+    cleaned = cleaned.replace(/â€™/g, "'");
 
     return cleaned;
   };

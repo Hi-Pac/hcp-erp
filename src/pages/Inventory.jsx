@@ -6,6 +6,7 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   DocumentArrowDownIcon,
+  DocumentArrowUpIcon,
   PrinterIcon
 } from '@heroicons/react/24/outline';
 import Modal from '../components/Common/Modal';
@@ -30,6 +31,10 @@ const Inventory = () => {
     minQuantity: '',
     description: ''
   });
+
+  // Import states
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importPreview, setImportPreview] = useState([]);
 
   const categories = ['الإنشائية', 'الخارجية', 'الديكورية'];
 
@@ -162,6 +167,241 @@ const Inventory = () => {
     setIsModalOpen(false);
   };
 
+  // دالة رفع ملف CSV
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast.error('يرجى اختيار ملف CSV فقط');
+      return;
+    }
+
+    // قراءة الملف وعرض المعاينة
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        let text = e.target.result;
+
+        // إزالة BOM إذا كان موجوداً
+        if (text.charCodeAt(0) === 0xFEFF) {
+          text = text.slice(1);
+        }
+
+        const lines = text.split(/\r?\n/).filter(line => line.trim());
+
+        if (lines.length < 2) {
+          toast.error('الملف يجب أن يحتوي على رأس الأعمدة وبيانات المنتجات');
+          return;
+        }
+
+        // تحليل البيانات مع دعم أفضل للفواصل
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const data = lines.slice(1).map(line => {
+          // تحليل أفضل للـ CSV مع دعم النصوص المحاطة بعلامات اقتباس
+          const values = [];
+          let current = '';
+          let inQuotes = false;
+
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              values.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          values.push(current.trim()); // آخر قيمة
+
+          const product = {};
+          headers.forEach((header, index) => {
+            let value = (values[index] || '').replace(/"/g, '');
+
+            // معالجة خاصة للـ batches
+            if (header === 'batches' && value) {
+              product[header] = value.split(';').map(b => b.trim()).filter(b => b);
+            } else {
+              product[header] = value;
+            }
+          });
+          return product;
+        });
+
+        console.log('Parsed products data:', data); // للتشخيص
+        setImportPreview(data);
+        setIsImportModalOpen(true);
+      } catch (error) {
+        console.error('Error parsing CSV:', error);
+        toast.error('خطأ في قراءة الملف. تأكد من أن الملف بصيغة CSV صحيحة');
+      }
+    };
+
+    reader.readAsText(file, 'UTF-8');
+  };
+
+  // دالة تأكيد الاستيراد
+  const handleConfirmImport = async () => {
+    if (!hasPermission('admin') && !hasPermission('supervisor')) {
+      toast.error('غير مسموح لك بإضافة المنتجات');
+      return;
+    }
+
+    const result = await toast.promise(
+      (async () => {
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const productData of importPreview) {
+          try {
+            // التحقق من البيانات المطلوبة
+            if (!productData.name || !productData.category || !productData.price) {
+              errorCount++;
+              continue;
+            }
+
+            const newProduct = {
+              name: productData.name,
+              category: productData.category,
+              price: parseFloat(productData.price) || 0,
+              quantity: parseInt(productData.quantity) || 0,
+              minQuantity: parseInt(productData.minQuantity) || 0,
+              description: productData.description || '',
+              batches: productData.batches || [],
+              createdBy: currentUser.email
+            };
+
+            await addProduct(newProduct);
+            successCount++;
+          } catch (error) {
+            console.error('Error adding product:', error);
+            errorCount++;
+          }
+        }
+
+        return { successCount, errorCount };
+      })(),
+      {
+        loading: 'جاري استيراد المنتجات...',
+        success: ({ successCount, errorCount }) =>
+          `تم استيراد ${successCount} منتج بنجاح${errorCount > 0 ? ` (${errorCount} فشل)` : ''}`,
+        error: 'خطأ في استيراد المنتجات'
+      }
+    );
+
+    setIsImportModalOpen(false);
+    setImportPreview([]);
+  };
+
+  // دالة تحميل ملف العينة
+  const downloadSampleCSV = () => {
+    const sampleData = `name,category,price,quantity,minQuantity,description,batches
+دهان ابيض مطفي,الإنشائية,45.50,120,20,دهان ابيض عالي الجودة للجدران الداخلية,B001;B002
+دهان ازرق لامع,الخارجية,52.00,85,15,دهان ازرق مقاوم للعوامل الجوية,B003
+دهان احمر ديكوري,الديكورية,38.75,60,10,دهان احمر للديكورات الداخلية,B004;B005
+دهان اخضر نصف لامع,الخارجية,48.25,95,20,دهان اخضر مناسب للأسطح الخارجية,B006
+دهان بني كلاسيكي,الديكورية,41.00,75,12,دهان بني كلاسيكي للديكورات التراثية,B007;B008`;
+
+    // إضافة BOM للـ UTF-8 لضمان العرض الصحيح في Excel
+    const BOM = '\uFEFF';
+    const csvContent = BOM + sampleData;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'sample_products.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success('تم تحميل ملف العينة');
+  };
+
+  // دالة إصلاح البيانات الموجودة
+  const handleFixExistingData = async () => {
+    if (!hasPermission('admin')) {
+      toast.error('غير مسموح لك بإصلاح البيانات');
+      return;
+    }
+
+    const result = await toast.promise(
+      (async () => {
+        // إضافة بيانات منتجات تجريبية صحيحة
+        const sampleProducts = [
+          {
+            name: 'دهان ابيض مطفي',
+            category: 'الإنشائية',
+            price: 45.50,
+            quantity: 120,
+            minQuantity: 20,
+            description: 'دهان ابيض عالي الجودة للجدران الداخلية',
+            batches: ['B001', 'B002']
+          },
+          {
+            name: 'دهان ازرق لامع',
+            category: 'الخارجية',
+            price: 52.00,
+            quantity: 85,
+            minQuantity: 15,
+            description: 'دهان ازرق مقاوم للعوامل الجوية',
+            batches: ['B003']
+          },
+          {
+            name: 'دهان احمر ديكوري',
+            category: 'الديكورية',
+            price: 38.75,
+            quantity: 60,
+            minQuantity: 10,
+            description: 'دهان احمر للديكورات الداخلية',
+            batches: ['B004', 'B005']
+          },
+          {
+            name: 'دهان اخضر نصف لامع',
+            category: 'الخارجية',
+            price: 48.25,
+            quantity: 95,
+            minQuantity: 20,
+            description: 'دهان اخضر مناسب للأسطح الخارجية',
+            batches: ['B006']
+          },
+          {
+            name: 'دهان بني كلاسيكي',
+            category: 'الديكورية',
+            price: 41.00,
+            quantity: 75,
+            minQuantity: 12,
+            description: 'دهان بني كلاسيكي للديكورات التراثية',
+            batches: ['B007', 'B008']
+          }
+        ];
+
+        let addedCount = 0;
+        for (const productData of sampleProducts) {
+          try {
+            await addProduct({
+              ...productData,
+              createdBy: currentUser.email
+            });
+            addedCount++;
+          } catch (error) {
+            console.error('Error adding product:', error);
+          }
+        }
+
+        return addedCount;
+      })(),
+      {
+        loading: 'جاري إضافة بيانات المنتجات...',
+        success: (count) => `تم إضافة ${count} منتج بنجاح`,
+        error: 'خطأ في إضافة البيانات'
+      }
+    );
+  };
+
   const addBatch = () => {
     setFormData({
       ...formData,
@@ -202,15 +442,54 @@ const Inventory = () => {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-secondary-900">إدارة المخزون</h1>
-        {hasPermission('User') && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="btn-primary flex items-center"
-          >
-            <PlusIcon className="w-5 h-5 ml-2" />
-            إضافة منتج جديد
-          </button>
-        )}
+        <div className="flex items-center space-x-3 space-x-reverse">
+          {hasPermission('User') && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="btn-primary flex items-center space-x-2 space-x-reverse"
+            >
+              <PlusIcon className="w-5 h-5" />
+              <span>إضافة منتج جديد</span>
+            </button>
+          )}
+
+          {hasPermission('supervisor') && (
+            <>
+              <button
+                onClick={downloadSampleCSV}
+                className="btn-secondary flex items-center space-x-2 space-x-reverse"
+              >
+                <DocumentArrowDownIcon className="w-5 h-5" />
+                <span>ملف عينة</span>
+              </button>
+
+              <label className="btn-secondary flex items-center space-x-2 space-x-reverse cursor-pointer">
+                <DocumentArrowUpIcon className="w-5 h-5" />
+                <span>استيراد CSV</span>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            </>
+          )}
+
+          {hasPermission('admin') && (
+            <button
+              onClick={handleFixExistingData}
+              className="btn-warning flex items-center space-x-2 space-x-reverse"
+              title="إصلاح البيانات الموجودة"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span>إصلاح البيانات</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -478,6 +757,84 @@ const Inventory = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Import Preview Modal */}
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        title="معاينة استيراد المنتجات"
+        size="xl"
+      >
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-blue-800">
+              سيتم استيراد {importPreview.length} منتج. يرجى مراجعة البيانات قبل التأكيد.
+            </p>
+          </div>
+
+          <div className="max-h-96 overflow-auto">
+            <table className="min-w-full divide-y divide-secondary-200">
+              <thead className="bg-secondary-50 sticky top-0">
+                <tr>
+                  <th className="table-header">اسم المنتج</th>
+                  <th className="table-header">الفئة</th>
+                  <th className="table-header">السعر</th>
+                  <th className="table-header">الكمية</th>
+                  <th className="table-header">الحد الأدنى</th>
+                  <th className="table-header">الوصف</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-secondary-200">
+                {importPreview.slice(0, 10).map((product, index) => (
+                  <tr key={index} className="hover:bg-secondary-50">
+                    <td className="table-cell" style={{direction: 'rtl'}}>
+                      {product.name || 'غير محدد'}
+                    </td>
+                    <td className="table-cell">
+                      {product.category || 'غير محدد'}
+                    </td>
+                    <td className="table-cell">
+                      {product.price || '0'} ر.س
+                    </td>
+                    <td className="table-cell">
+                      {product.quantity || '0'}
+                    </td>
+                    <td className="table-cell">
+                      {product.minQuantity || '0'}
+                    </td>
+                    <td className="table-cell" style={{direction: 'rtl'}}>
+                      {product.description || 'غير محدد'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {importPreview.length > 10 && (
+              <div className="text-center py-4 text-secondary-500">
+                ... و {importPreview.length - 10} منتج آخر
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-3 space-x-reverse pt-4 border-t">
+            <button
+              type="button"
+              onClick={() => setIsImportModalOpen(false)}
+              className="btn-secondary"
+            >
+              إلغاء
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmImport}
+              className="btn-primary"
+            >
+              تأكيد الاستيراد
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

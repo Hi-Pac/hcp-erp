@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  PlusIcon, 
-  PencilIcon, 
-  TrashIcon, 
+import {
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
   DocumentArrowDownIcon,
+  DocumentArrowUpIcon,
   PrinterIcon
 } from '@heroicons/react/24/outline';
 import Modal from '../components/Common/Modal';
@@ -18,9 +19,12 @@ const Customers = () => {
   const { customers, addCustomer, updateCustomer, deleteCustomer } = useData();
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('');
+  const [importFile, setImportFile] = useState(null);
+  const [importPreview, setImportPreview] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -126,6 +130,110 @@ const Customers = () => {
     setIsModalOpen(false);
   };
 
+  // دوال الاستيراد
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+      toast.error('يرجى اختيار ملف CSV فقط');
+      return;
+    }
+
+    setImportFile(file);
+
+    // قراءة الملف وعرض المعاينة
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const lines = text.split('\n').filter(line => line.trim());
+
+      if (lines.length < 2) {
+        toast.error('الملف يجب أن يحتوي على رأس الأعمدة وبيانات العملاء');
+        return;
+      }
+
+      // تحليل البيانات
+      const headers = lines[0].split(',').map(h => h.trim());
+      const data = lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim());
+        const customer = {};
+        headers.forEach((header, index) => {
+          customer[header] = values[index] || '';
+        });
+        return customer;
+      });
+
+      setImportPreview(data);
+      setIsImportModalOpen(true);
+    };
+
+    reader.readAsText(file, 'UTF-8');
+  };
+
+  const handleImportConfirm = async () => {
+    if (!importPreview.length) return;
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const customerData of importPreview) {
+        try {
+          // تحويل البيانات للصيغة المطلوبة
+          const formattedData = {
+            name: customerData.name || customerData['الاسم'] || '',
+            phone: customerData.phone || customerData['الهاتف'] || '',
+            address: customerData.address || customerData['العنوان'] || '',
+            city: customerData.city || customerData['المدينة'] || '',
+            customerType: customerData.customerType || customerData['نوع العميل'] || 'فرد',
+            creditLimit: parseFloat(customerData.creditLimit || customerData['حد الائتمان'] || 0),
+            discount: parseFloat(customerData.discount || customerData['نسبة الخصم'] || 0),
+            email: customerData.email || customerData['البريد الإلكتروني'] || '',
+            notes: customerData.notes || customerData['ملاحظات'] || ''
+          };
+
+          if (formattedData.name) {
+            await addCustomer(formattedData);
+            successCount++;
+          }
+        } catch (error) {
+          console.error('Error importing customer:', error);
+          errorCount++;
+        }
+      }
+
+      toast.success(`تم استيراد ${successCount} عميل بنجاح${errorCount > 0 ? ` مع ${errorCount} أخطاء` : ''}`);
+
+      // إعادة تعيين البيانات
+      setImportFile(null);
+      setImportPreview([]);
+      setIsImportModalOpen(false);
+
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error('خطأ في استيراد البيانات');
+    }
+  };
+
+  const downloadSampleCSV = () => {
+    const sampleData = `name,phone,address,city,customerType,creditLimit,discount,email,notes
+أحمد محمد علي,01234567890,شارع النيل,القاهرة,فرد,5000,5,ahmed@example.com,عميل مميز
+شركة البناء الحديث,01987654321,المعادي,القاهرة,شركة,50000,10,info@building.com,شركة كبيرة`;
+
+    const blob = new Blob([sampleData], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'sample_customers.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success('تم تحميل ملف العينة');
+  };
+
   const getTypeColor = (type) => {
     switch (type) {
       case 'شركة':
@@ -145,13 +253,35 @@ const Customers = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-secondary-900">إدارة العملاء</h1>
         {hasPermission('Manager') && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="btn-primary flex items-center space-x-2 space-x-reverse"
-          >
-            <PlusIcon className="w-5 h-5" />
-            <span>إضافة عميل جديد</span>
-          </button>
+          <div className="flex space-x-2 space-x-reverse">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="btn-primary flex items-center space-x-2 space-x-reverse"
+            >
+              <PlusIcon className="w-5 h-5" />
+              <span>إضافة عميل جديد</span>
+            </button>
+
+            <button
+              onClick={downloadSampleCSV}
+              className="btn-secondary flex items-center space-x-2 space-x-reverse"
+              title="تحميل ملف عينة CSV"
+            >
+              <DocumentArrowDownIcon className="w-5 h-5" />
+              <span>ملف عينة</span>
+            </button>
+
+            <label className="btn-secondary flex items-center space-x-2 space-x-reverse cursor-pointer">
+              <DocumentArrowUpIcon className="w-5 h-5" />
+              <span>استيراد CSV</span>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
+          </div>
         )}
       </div>
 
@@ -418,6 +548,95 @@ const Customers = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Import Preview Modal */}
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={() => {
+          setIsImportModalOpen(false);
+          setImportPreview([]);
+          setImportFile(null);
+        }}
+        title="معاينة استيراد العملاء"
+        size="xl"
+      >
+        <div className="space-y-4">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h4 className="font-medium text-blue-800 mb-2">
+              سيتم استيراد {importPreview.length} عميل
+            </h4>
+            <p className="text-sm text-blue-600">
+              تأكد من صحة البيانات قبل المتابعة
+            </p>
+          </div>
+
+          {/* Preview Table */}
+          <div className="max-h-96 overflow-y-auto">
+            <table className="min-w-full divide-y divide-secondary-200">
+              <thead className="bg-secondary-50 sticky top-0">
+                <tr>
+                  <th className="table-header">الاسم</th>
+                  <th className="table-header">الهاتف</th>
+                  <th className="table-header">العنوان</th>
+                  <th className="table-header">النوع</th>
+                  <th className="table-header">حد الائتمان</th>
+                  <th className="table-header">الخصم %</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-secondary-200">
+                {importPreview.slice(0, 10).map((customer, index) => (
+                  <tr key={index} className="hover:bg-secondary-50">
+                    <td className="table-cell">
+                      {customer.name || customer['الاسم'] || 'غير محدد'}
+                    </td>
+                    <td className="table-cell">
+                      {customer.phone || customer['الهاتف'] || 'غير محدد'}
+                    </td>
+                    <td className="table-cell">
+                      {customer.address || customer['العنوان'] || 'غير محدد'}
+                    </td>
+                    <td className="table-cell">
+                      {customer.customerType || customer['نوع العميل'] || 'فرد'}
+                    </td>
+                    <td className="table-cell">
+                      {customer.creditLimit || customer['حد الائتمان'] || '0'}
+                    </td>
+                    <td className="table-cell">
+                      {customer.discount || customer['نسبة الخصم'] || '0'}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {importPreview.length > 10 && (
+              <div className="text-center py-2 text-sm text-secondary-600">
+                ... و {importPreview.length - 10} عميل آخر
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-3 space-x-reverse pt-4">
+            <button
+              onClick={() => {
+                setIsImportModalOpen(false);
+                setImportPreview([]);
+                setImportFile(null);
+              }}
+              className="btn-secondary"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={handleImportConfirm}
+              className="btn-primary"
+            >
+              تأكيد الاستيراد
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
